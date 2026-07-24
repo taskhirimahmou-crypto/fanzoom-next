@@ -145,19 +145,24 @@
 }
 
 /* ====== پایه ====== */
+/* ====== پایه ====== */
+/* ====== پایه ====== */
+@layer base {
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-body {
-  font-family: var(--font-vazir), system-ui, -apple-system, "Segoe UI", sans-serif;
-  background-color: var(--color-surface);
-  color: var(--color-on-surface);
-  font-feature-settings: "ss01", "ss02", "cv01";
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  body {
+    font-family: var(--font-vazir), system-ui, -apple-system, "Segoe UI", sans-serif;
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-feature-settings: "ss01", "ss02", "cv01";
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 }
 
 /* ====== Material Symbols (self-hosted) ====== */
@@ -209,4 +214,9 @@ body {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+/* حرکت نوار خبر فوری */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }

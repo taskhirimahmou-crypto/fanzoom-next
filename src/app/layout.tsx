@@ -3,6 +3,8 @@ import Script from 'next/script';
 import { Vazirmatn } from 'next/font/google';
 import 'material-symbols/rounded.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 import './globals.css';
 
 const vazir = Vazirmatn({
@@ -38,6 +40,7 @@ export default function RootLayout({
     <html
       lang="fa"
       dir="rtl"
+      data-scroll-behavior="smooth"
       className={`${vazir.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -47,7 +50,13 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_INIT }}
         />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );
