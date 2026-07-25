@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getServerPocketBase } from '@/lib/auth-cookies';
+import { BookmarkButton } from '@/components/BookmarkButton';
 import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
@@ -45,6 +47,23 @@ export default async function ArticlePage({ params }: Props) {
 
   const cat = findCategoryBySlug(article.category) ?? allCategories[0];
   const related = await getRelatedArticles(article, 3);
+    // آیا کاربر لاگین این مقاله را نشان کرده است؟
+  const pb = await getServerPocketBase();
+  const userId = pb.authStore.record?.id ?? null;
+  let bookmarked = false;
+  if (userId) {
+    try {
+      await pb.collection('bookmarks').getFirstListItem(
+        pb.filter('user = {:uid} && article = {:aid}', {
+          uid: userId,
+          aid: article.id,
+        }),
+      );
+      bookmarked = true;
+    } catch {
+      bookmarked = false;
+    }
+  }
 
   return (
     <main className="relative">
@@ -118,7 +137,12 @@ export default async function ArticlePage({ params }: Props) {
               {formatViews(article.views)} بازدید
             </span>
             <span>{relativeTime(article.publishedAt)}</span>
-            <span className="ms-auto">
+            <span className="ms-auto flex items-center gap-2">
+              <BookmarkButton
+                articleId={article.id}
+                initialBookmarked={bookmarked}
+                signedIn={!!userId}
+              />
               <ShareButton />
             </span>
           </div>

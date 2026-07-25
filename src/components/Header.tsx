@@ -284,6 +284,14 @@ export function Header({ user }: { user: CurrentUser | null }) {
                   }}
                   className="flex w-full items-center gap-3.5 rounded-full px-4 py-3 text-sm font-medium text-error transition-colors hover:bg-error/10"
                 >
+                                    <Link
+                  href="/bookmarks"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex w-full items-center gap-3.5 rounded-full px-4 py-3 text-sm font-medium text-on-surface transition-colors hover:bg-on-surface/8"
+                >
+                  <Icon name="bookmark" className="text-2xl text-on-surface-variant" />
+                  نشان‌شده‌ها
+                </Link>
                   <Icon name="logout" className="text-2xl" />
                   خروج
                 </button>

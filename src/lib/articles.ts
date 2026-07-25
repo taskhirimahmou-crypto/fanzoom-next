@@ -148,3 +148,17 @@ export async function getRelatedArticles(
   });
   return items;
 }
+/** مقالات نشان‌شده‌ی یک کاربر */
+/** مقالات نشان‌شده‌ی یک کاربر */
+/** مقالات نشان‌شده‌ی یک کاربر */
+export async function getBookmarkedArticles(userId: string): Promise<Article[]> {
+  const pb = await getServerPocketBase(); // ← با auth (از کوکی کاربر)
+  const items = await pb.collection('bookmarks').getFullList({
+    filter: pb.filter('user = {:uid}', { uid: userId }),
+    expand: 'article',
+    sort: '-created',
+  });
+  return items
+    .map((b) => (b.expand as { article?: Article })?.article)
+    .filter((a): a is Article => Boolean(a));
+}

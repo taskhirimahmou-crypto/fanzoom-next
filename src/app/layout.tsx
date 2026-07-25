@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { Vazirmatn } from 'next/font/google';
+import Script from 'next/script';
 import 'material-symbols/rounded.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
@@ -46,7 +46,7 @@ export default async function RootLayout({
     ? { id: record.id, email: record.email, displayName: record.displayName }
     : null;
 
-  return (
+    return (
     <html
       lang="fa"
       dir="rtl"
@@ -54,12 +54,14 @@ export default async function RootLayout({
       className={`${vazir.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
+      <head>
         <Script
           id="theme-no-flash"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_INIT }}
         />
+      </head>
+      <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">
             <Header user={user} />

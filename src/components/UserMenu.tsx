@@ -66,6 +66,14 @@ export function UserMenu({ user }: { user: CurrentUser }) {
           <Icon name="person" className="text-xl text-on-surface-variant" />
           پروفایل من
         </Link>
+                <Link
+          href="/bookmarks"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-on-surface/8"
+        >
+          <Icon name="bookmark" className="text-xl text-on-surface-variant" />
+          نشان‌شده‌ها
+        </Link>
         <button
           type="button"
           onClick={logout}

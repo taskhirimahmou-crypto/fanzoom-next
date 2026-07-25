@@ -41,6 +41,11 @@ export type IconName =
     | 'logout'
   | 'calendar_month'
   | 'edit_note'
+    | 'name'
+    | 'login'
+        | 'tune'
+                | 'lock'
+
   | 'manage_accounts';
 
 interface IconProps {
