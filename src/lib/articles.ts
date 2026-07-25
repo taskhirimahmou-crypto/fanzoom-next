@@ -88,3 +88,63 @@ export function relativeTime(dateStr: string): string {
   if (day < 30) return `${day.toLocaleString('fa-IR')} روز پیش`;
   return new Date(dateStr).toLocaleDateString('fa-IR');
 }
+/* ── توابع فاز ۴: صفحه‌ی مقاله، دسته، جستجو ── */
+
+/** یک مقاله بر اساس slug (برای صفحه‌ی مقاله) */
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  const pb = getPocketBase();
+  try {
+    return await pb
+      .collection('articles')
+      .getFirstListItem<Article>(pb.filter('slug = {:slug}', { slug }));
+  } catch {
+    return null;
+  }
+}
+
+/** مقالات یک دسته */
+export async function getArticlesByCategory(
+  categorySlug: string,
+  limit = 20,
+): Promise<Article[]> {
+  const pb = getPocketBase();
+  const { items } = await pb.collection('articles').getList<Article>(1, limit, {
+    filter: pb.filter(`${PUBLISHED} && category = {:cat}`, { cat: categorySlug }),
+    sort: '-publishedAt',
+    skipTotal: true,
+  });
+  return items;
+}
+
+/** جستجو در عنوان و خلاصه */
+export async function searchArticles(
+  query: string,
+  limit = 20,
+): Promise<Article[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const pb = getPocketBase();
+  const { items } = await pb.collection('articles').getList<Article>(1, limit, {
+    filter: pb.filter(`${PUBLISHED} && (title ~ {:q} || excerpt ~ {:q})`, { q }),
+    sort: '-publishedAt',
+    skipTotal: true,
+  });
+  return items;
+}
+
+/** مقالات مرتبط (همان دسته، به جز خود مقاله) */
+export async function getRelatedArticles(
+  article: Article,
+  limit = 3,
+): Promise<Article[]> {
+  const pb = getPocketBase();
+  const { items } = await pb.collection('articles').getList<Article>(1, limit, {
+    filter: pb.filter(
+      `${PUBLISHED} && category = {:cat} && id != {:id}`,
+      { cat: article.category, id: article.id },
+    ),
+    sort: '-publishedAt',
+    skipTotal: true,
+  });
+  return items;
+}

@@ -32,8 +32,9 @@ export type IconName =
   | 'electric_car'
   | 'code'
   | 'insights'
-  | 'search_off';
-
+  | 'search_off'
+  | 'check';
+  
 interface IconProps {
   name: IconName;
   className?: string;
