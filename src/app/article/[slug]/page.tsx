@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArticleVisual } from '@/components/ArticleVisual';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -124,15 +125,14 @@ export default async function ArticlePage({ params }: Props) {
         </Reveal>
 
         {/* hero tonal با آیکون دسته */}
-        <Reveal delay={260}>
-          <div
-            className="mt-8 flex h-64 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant/60 md:h-80"
-            style={{
-              backgroundColor: `color-mix(in srgb, var(--cat-${cat.tone}) 18%, var(--color-surface-container))`,
-            }}
-          >
-            <Icon name={cat.symbol} className="animate-float-soft text-9xl text-on-surface/25" />
-          </div>
+                <Reveal delay={260}>
+          <ArticleVisual
+            image={article.image}
+            title={article.title}
+            cat={cat}
+            className="mt-8 h-64 rounded-2xl border border-outline-variant/60 md:h-80"
+            iconClassName="text-9xl animate-float-soft"
+          />
         </Reveal>
 
         {/* محتوای مقاله */}
@@ -160,14 +160,13 @@ export default async function ArticlePage({ params }: Props) {
                       href={`/article/${rel.slug}`}
                       className="group flex items-center gap-4 rounded-xl border border-outline-variant/60 bg-surface-container-low p-3.5 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
                     >
-                      <span
-                        className="grid h-14 w-14 shrink-0 place-items-center rounded-lg"
-                        style={{
-                          backgroundColor: `color-mix(in srgb, var(--cat-${relCat.tone}) 16%, var(--color-surface-container))`,
-                        }}
-                      >
-                        <Icon name={relCat.symbol} className="text-2xl text-on-surface/30" />
-                      </span>
+                      <ArticleVisual
+                        image={rel.image}
+                        title={rel.title}
+                        cat={relCat}
+                        className="h-14 w-14 shrink-0 rounded-lg"
+                        iconClassName="text-2xl"
+                      />
                       <span className="min-w-0">
                         <span className="line-clamp-1 block text-sm font-bold text-on-surface transition-colors group-hover:text-primary">
                           {rel.title}

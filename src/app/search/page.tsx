@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArticleVisual } from '@/components/ArticleVisual';
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
@@ -28,14 +29,13 @@ function ResultRow({ article }: { article: Article }) {
       href={`/article/${article.slug}`}
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
-      <div
-        className="grid h-20 w-20 shrink-0 place-items-center rounded-xl"
-        style={{
-          backgroundColor: `color-mix(in srgb, var(--cat-${cat.tone}) 16%, var(--color-surface-container))`,
-        }}
-      >
-        <Icon name={cat.symbol} className="text-3xl text-on-surface/30" />
-      </div>
+            <ArticleVisual
+        image={article.image}
+        title={article.title}
+        cat={cat}
+        className="h-20 w-20 shrink-0 rounded-xl"
+        iconClassName="text-3xl"
+      />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span

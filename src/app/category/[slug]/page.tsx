@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArticleVisual } from '@/components/ArticleVisual';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -34,17 +35,13 @@ function LeadCard({ article, cat }: { article: Article; cat: Category }) {
       href={`/article/${article.slug}`}
       className="group grid overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3 md:grid-cols-[280px_1fr]"
     >
-      <div
-        className="flex h-48 items-center justify-center md:h-full"
-        style={{
-          backgroundColor: `color-mix(in srgb, var(--cat-${cat.tone}) 18%, var(--color-surface-container))`,
-        }}
-      >
-        <Icon
-          name={cat.symbol}
-          className="text-7xl text-on-surface/25 transition-transform duration-500 ease-decelerate group-hover:scale-110"
-        />
-      </div>
+            <ArticleVisual
+        image={article.image}
+        title={article.title}
+        cat={cat}
+        className="h-48 md:h-full"
+        iconClassName="text-7xl"
+      />
       <div className="p-6 md:p-8">
         <h2 className="text-2xl font-black leading-snug text-on-surface transition-colors group-hover:text-primary md:text-3xl">
           {article.title}
@@ -75,14 +72,13 @@ function RowCard({ article, cat }: { article: Article; cat: Category }) {
       href={`/article/${article.slug}`}
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
-      <div
-        className="grid h-20 w-20 shrink-0 place-items-center rounded-xl"
-        style={{
-          backgroundColor: `color-mix(in srgb, var(--cat-${cat.tone}) 16%, var(--color-surface-container))`,
-        }}
-      >
-        <Icon name={cat.symbol} className="text-3xl text-on-surface/30" />
-      </div>
+            <ArticleVisual
+        image={article.image}
+        title={article.title}
+        cat={cat}
+        className="h-20 w-20 shrink-0 rounded-xl"
+        iconClassName="text-3xl"
+      />
       <div className="min-w-0">
         <span className="text-[11px] text-on-surface-variant">
           {relativeTime(article.publishedAt)}
