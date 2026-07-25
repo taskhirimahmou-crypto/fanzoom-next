@@ -2,117 +2,25 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { Icon, type IconName } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
-import { allCategories, findCategory } from '@/lib/categories';
+import { allCategories, findCategoryBySlug } from '@/lib/categories';
+import {
+  getHomePageData,
+  formatViews,
+  relativeTime,
+  type Article,
+} from '@/lib/articles';
 
-/* ─────────── داده‌ی نمونه ───────────
-   PLACEHOLDER — در فاز ۳ با داده‌ی واقعی PocketBase جایگزین می‌شود. */
-type Article = {
-  id: string;
-  title: string;
-  excerpt: string;
-  category: string;
-  readTime: number;
-  views: string;
-  time: string;
-};
+// ISR: صفحه هر ۶۰ ثانیه یک‌بار در پس‌زمینه بازسازی می‌شود
+export const revalidate = 60;
 
-const breakingNews = [
-  'نسل جدید پردازنده‌های پرچمدار با جهش ۴۰ درصدی عملکرد رونمایی شد',
-  'هشدار امنیتی جدید برای میلیاردها دستگاه اندرویدی منتشر شد',
-  'کنسول نسل بعدی سونی زودتر از انتظار به بازار می‌آید',
-  'به‌روزرسانی بزرگ اندروید ۱۶ با قابلیت‌های هوش مصنوعی منتشر شد',
-];
-
-const featured: Article = {
-  id: 'ai-phones-revolution',
-  title: 'هوش مصنوعی مولد به گوشی‌های میان‌رده می‌آید؛ انقلابی در راه است',
-  excerpt:
-    'سازندگان بزرگ تراشه از نسل جدید پردازنده‌های خود رونمایی کردند که قابلیت اجرای مدل‌های زبانی بزرگ را به‌صورت آفلاین و روی دستگاه فراهم می‌کند؛ قابلیتی که تا پیش از این تنها در پرچمداران گران‌قیمت دیده می‌شد.',
-  category: 'هوش مصنوعی و رباتیک',
-  readTime: 8,
-  views: '۱۲.۴ هزار',
-  time: '۲ ساعت پیش',
-};
-
-const secondary: Article[] = [
-  {
-    id: 'flagship-review',
-    title: 'بررسی کامل پرچمدار جدید؛ قدرت مطلق در دستان شما',
-    excerpt: 'یک ماه با پرچمدار جدید زندگی کردیم؛ نتیجه چیزی فراتر از انتظار بود.',
-    category: 'موبایل و تبلت',
-    readTime: 12,
-    views: '۸.۲ هزار',
-    time: '۴ ساعت پیش',
-  },
-  {
-    id: 'gpu-launch',
-    title: 'نسل جدید کارت‌های گرافیک رونمایی شد؛ جهشی ۴۰ درصدی در عملکرد',
-    excerpt: 'رقابت در بازار گرافیک داغ‌تر از همیشه؛ نگاهی به مشخصات و قیمت‌ها.',
-    category: 'سخت‌افزار و قطعات کامپیوتر',
-    readTime: 6,
-    views: '۹.۷ هزار',
-    time: '۶ ساعت پیش',
-  },
-];
-
-const latest: Article[] = [
-  {
-    id: 'security-alert',
-    title: 'هشدار امنیتی جدید؛ میلیاردها دستگاه در معرض خطر',
-    excerpt: 'یک آسیب‌پذری بحرانی کشف شده که میلیون‌ها کاربر را تحت تأثیر قرار می‌دهد.',
-    category: 'امنیت سایبری و حریم خصوصی',
-    readTime: 4,
-    views: '۱۵.۱ هزار',
-    time: '۱ ساعت پیش',
-  },
-  {
-    id: 'ps6-rumor',
-    title: 'کنسول نسل بعدی سونی زودتر از انتظار می‌آید',
-    excerpt: 'گزارش‌های جدید از عرضه‌ی زودهنگام کنسول نسل بعدی حکایت دارند.',
-    category: 'گیمینگ و کنسول‌ها',
-    readTime: 5,
-    views: '۱۱.۳ هزار',
-    time: '۳ ساعت پیش',
-  },
-  {
-    id: 'smartwatch-health',
-    title: 'ساعت هوشمند جدید با سنسورهای پیشرفته‌ی پایش سلامت',
-    excerpt: 'پایش فشار خون و قند خون بدون نیاز به تجهیزات جانبی.',
-    category: 'گجت‌های پوشیدنی و سلامت',
-    readTime: 7,
-    views: '۶.۸ هزار',
-    time: '۵ ساعت پیش',
-  },
-  {
-    id: 'android-16',
-    title: 'به‌روزرسانی بزرگ اندروید ۱۶ با قابلیت‌های هوش مصنوعی منتشر شد',
-    excerpt: 'نگاهی به مهم‌ترین تغییرات و دستگاه‌های واجد شرایط دریافت به‌روزرسانی.',
-    category: 'نرم‌افزار و سیستم‌عامل',
-    readTime: 6,
-    views: '۱۰.۵ هزار',
-    time: '۷ ساعت پیش',
-  },
-  {
-    id: 'ev-iran',
-    title: 'خودروهای برقی خودران به جاده‌های ایران می‌آیند؟',
-    excerpt: 'زیرساخت‌های شارژ و چالش‌های پیش‌روی خودروهای برقی در کشور.',
-    category: 'حمل‌ونقل و وسایل نقلیه هوشمند',
-    readTime: 9,
-    views: '۷.۹ هزار',
-    time: '۹ ساعت پیش',
-  },
-];
-
-const trending = [featured, ...secondary, ...latest].slice(0, 5);
-
-/* ─────────── ابزارها ─────────── */
-const catOf = (name: string) => findCategory(name) ?? allCategories[0];
 const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+
 const toneStyle = (tone: string) =>
   ({ '--c': `var(--cat-${tone})` }) as CSSProperties;
 
-/* ─────────── اجزای صفحه ─────────── */
+const catOf = (slug: string) => findCategoryBySlug(slug) ?? allCategories[0];
+
 function SectionTitle({ icon, title }: { icon: IconName; title: string }) {
   return (
     <div className="flex items-center gap-3">
@@ -129,7 +37,7 @@ function FeaturedCard({ article }: { article: Article }) {
   const cat = catOf(article.category);
   return (
     <Link
-      href={`/article/${article.id}`}
+      href={`/article/${article.slug}`}
       className="group block h-full overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
     >
       <div
@@ -163,9 +71,9 @@ function FeaturedCard({ article }: { article: Article }) {
           </span>
           <span className="flex items-center gap-1.5">
             <Icon name="visibility" className="text-base" />
-            {article.views} بازدید
+            {formatViews(article.views)} بازدید
           </span>
-          <span>{article.time}</span>
+          <span>{relativeTime(article.publishedAt)}</span>
         </div>
       </div>
     </Link>
@@ -176,7 +84,7 @@ function SecondaryCard({ article }: { article: Article }) {
   const cat = catOf(article.category);
   return (
     <Link
-      href={`/article/${article.id}`}
+      href={`/article/${article.slug}`}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
     >
       <div
@@ -201,7 +109,7 @@ function SecondaryCard({ article }: { article: Article }) {
           {article.title}
         </h3>
         <div className="mt-auto flex items-center gap-3 pt-3 text-[11px] text-on-surface-variant">
-          <span>{article.time}</span>
+          <span>{relativeTime(article.publishedAt)}</span>
           <span className="flex items-center gap-1">
             <Icon name="schedule" className="text-sm" />
             {toPersianDigits(article.readTime)} دقیقه
@@ -216,7 +124,7 @@ function LatestRow({ article }: { article: Article }) {
   const cat = catOf(article.category);
   return (
     <Link
-      href={`/article/${article.id}`}
+      href={`/article/${article.slug}`}
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
       <div
@@ -235,12 +143,16 @@ function LatestRow({ article }: { article: Article }) {
           >
             {cat.name}
           </span>
-          <span className="text-[11px] text-on-surface-variant">{article.time}</span>
+          <span className="text-[11px] text-on-surface-variant">
+            {relativeTime(article.publishedAt)}
+          </span>
         </div>
         <h3 className="mt-2 line-clamp-1 text-base font-bold text-on-surface transition-colors group-hover:text-primary">
           {article.title}
         </h3>
-        <p className="mt-1 line-clamp-1 text-sm text-on-surface-variant">{article.excerpt}</p>
+        <p className="mt-1 line-clamp-1 text-sm text-on-surface-variant">
+          {article.excerpt}
+        </p>
       </div>
     </Link>
   );
@@ -250,7 +162,7 @@ function TrendingItem({ article, rank }: { article: Article; rank: number }) {
   const cat = catOf(article.category);
   return (
     <Link
-      href={`/article/${article.id}`}
+      href={`/article/${article.slug}`}
       className="group flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-on-surface/8"
     >
       <span className="text-3xl font-black text-outline-variant/60 transition-colors group-hover:text-primary">
@@ -261,62 +173,70 @@ function TrendingItem({ article, rank }: { article: Article; rank: number }) {
           {article.title}
         </h4>
         <span className="mt-1 block text-[11px] text-on-surface-variant">
-          {cat.name} · {article.views} بازدید
+          {cat.name} · {formatViews(article.views)} بازدید
         </span>
       </div>
     </Link>
   );
 }
 
-/* ─────────── صفحه اصلی ─────────── */
-export default function HomePage() {
+export default async function HomePage() {
+  const { featured, secondary, latest, trending } = await getHomePageData();
+
+  const featuredArticle = featured ?? latest[0] ?? null;
+  const secondaryArticles = featured ? secondary : latest.slice(1, 3);
+  const breakingNews = latest.map((a) => a.title);
+
   return (
     <main className="relative">
-      {/* لایه‌ی ambient ملایم در بالای صفحه */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-gradient-to-b from-primary-container/20 to-transparent"
       />
 
-      {/* نوار خبر فوری */}
-      <div className="border-b border-outline-variant/60 bg-surface-container">
-        <div className="mx-auto flex h-11 max-w-7xl items-center gap-4 px-4 md:px-6">
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-error px-3 py-1 text-xs font-bold text-on-error">
-            <Icon name="bolt" fill className="text-sm" />
-            فوری
-          </span>
-          <div className="flex-1 overflow-hidden" dir="ltr">
-            <div className="flex w-max animate-[marquee_45s_linear_infinite] gap-14 whitespace-nowrap">
-              {[...breakingNews, ...breakingNews].map((news, i) => (
-                <span
-                  key={i}
-                  dir="rtl"
-                  className="flex items-center gap-2 text-sm text-on-surface-variant"
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  {news}
-                </span>
-              ))}
+      {/* نوار خبر فوری (از آخرین مقالات) */}
+      {breakingNews.length > 0 && (
+        <div className="border-b border-outline-variant/60 bg-surface-container">
+          <div className="mx-auto flex h-11 max-w-7xl items-center gap-4 px-4 md:px-6">
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-error px-3 py-1 text-xs font-bold text-on-error">
+              <Icon name="bolt" fill className="text-sm" />
+              فوری
+            </span>
+            <div className="flex-1 overflow-hidden" dir="ltr">
+              <div className="flex w-max animate-[marquee_45s_linear_infinite] gap-14 whitespace-nowrap">
+                {[...breakingNews, ...breakingNews].map((news, i) => (
+                  <span
+                    key={i}
+                    dir="rtl"
+                    className="flex items-center gap-2 text-sm text-on-surface-variant"
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    {news}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* بخش ویژه — چیدمان editorial */}
-      <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Reveal className="h-full lg:col-span-2">
-            <FeaturedCard article={featured} />
-          </Reveal>
-          <div className="grid gap-6 lg:grid-rows-2">
-            {secondary.map((article, i) => (
-              <Reveal key={article.id} delay={120 + i * 120} className="h-full">
-                <SecondaryCard article={article} />
-              </Reveal>
-            ))}
+      {/* بخش ویژه */}
+      {featuredArticle && (
+        <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Reveal className="h-full lg:col-span-2">
+              <FeaturedCard article={featuredArticle} />
+            </Reveal>
+            <div className="grid gap-6 lg:grid-rows-2">
+              {secondaryArticles.slice(0, 2).map((article, i) => (
+                <Reveal key={article.id} delay={120 + i * 120} className="h-full">
+                  <SecondaryCard article={article} />
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* آخرین اخبار + داغ‌ترین‌ها */}
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
