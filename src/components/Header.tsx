@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
 import { useTheme } from '@/components/ThemeProvider';
 import { mainNavCategories, moreNavCategories } from '@/lib/categories';
+import { UserMenu, type CurrentUser } from '@/components/UserMenu';
 
-export function Header() {
+
+export function Header({ user }: { user: CurrentUser | null }) {
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -171,6 +173,19 @@ export function Header() {
             </button>
           </div>
 
+          {/* ورود */}
+                    {/* ورود / منوی کاربر */}
+          {user ? (
+            <UserMenu user={user} />
+          ) : (
+            <Link
+              href="/login"
+              className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-bold text-on-primary shadow-1 transition-all duration-300 ease-standard hover:shadow-2 hover:brightness-110 active:scale-95 sm:inline-flex"
+            >
+              <Icon name="login" className="text-lg" />
+              ورود
+            </Link>
+          )}
           {/* تم */}
           <button
             type="button"
@@ -236,6 +251,54 @@ export function Header() {
           </nav>
 
           <div className="border-t border-outline-variant/60 p-3">
+            {/* ورود / ثبت‌نام */}
+                       {/* ورود / منوی کاربر (موبایل) */}
+            {user ? (
+              <>
+                <div className="mb-1 flex items-center gap-3 rounded-full px-4 py-3">
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary-container text-sm font-black text-on-secondary-container">
+                    {(user.displayName || user.email || 'ک')[0]}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-on-surface">
+                      {user.displayName || 'کاربر فنزوم'}
+                    </p>
+                    <p className="truncate text-xs text-on-surface-variant">{user.email}</p>
+                  </div>
+                </div>
+                <Link
+                  href="/profile"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex w-full items-center gap-3.5 rounded-full px-4 py-3 text-sm font-medium text-on-surface transition-colors hover:bg-on-surface/8"
+                >
+                  <Icon name="person" className="text-2xl text-on-surface-variant" />
+                  پروفایل من
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    setDrawerOpen(false);
+                    router.push('/');
+                    router.refresh();
+                  }}
+                  className="flex w-full items-center gap-3.5 rounded-full px-4 py-3 text-sm font-medium text-error transition-colors hover:bg-error/10"
+                >
+                  <Icon name="logout" className="text-2xl" />
+                  خروج
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setDrawerOpen(false)}
+                className="flex w-full items-center gap-3.5 rounded-full px-4 py-3 text-sm font-medium text-on-surface transition-colors hover:bg-on-surface/8"
+              >
+                <Icon name="login" className="text-2xl text-on-surface-variant" />
+                ورود / ثبت‌نام
+              </Link>
+            )}
+            {/* تم */}
             <button
               type="button"
               onClick={toggle}

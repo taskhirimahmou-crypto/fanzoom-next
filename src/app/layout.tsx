@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import './globals.css';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 
 const vazir = Vazirmatn({
   subsets: ['arabic', 'latin'],
@@ -33,9 +34,18 @@ export const metadata: Metadata = {
 
 const THEME_INIT = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // خواندن کاربر لاگین‌شده از کوکی (برای SSR)
+  const pb = await getServerPocketBase();
+  const record = pb.authStore.record as
+    | { id: string; email: string; displayName?: string }
+    | null;
+  const user = record
+    ? { id: record.id, email: record.email, displayName: record.displayName }
+    : null;
+
   return (
     <html
       lang="fa"
@@ -52,7 +62,7 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">
-            <Header />
+            <Header user={user} />
             <div className="flex-1">{children}</div>
             <Footer />
           </div>

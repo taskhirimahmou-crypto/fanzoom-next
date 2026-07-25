@@ -33,8 +33,16 @@ export type IconName =
   | 'code'
   | 'insights'
   | 'search_off'
-  | 'check';
-  
+  | 'check'
+    | 'check'
+  | 'error'
+  | 'progress_activity'
+  | 'logout'
+    | 'logout'
+  | 'calendar_month'
+  | 'edit_note'
+  | 'manage_accounts';
+
 interface IconProps {
   name: IconName;
   className?: string;
