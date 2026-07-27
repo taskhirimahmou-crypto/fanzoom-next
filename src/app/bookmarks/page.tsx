@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
-import type { Article } from '@/lib/articles';
-import { Icon } from '@/components/Icon';
+import type { Article } from '@/lib/articles-server';import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { BookmarkRow } from '@/components/BookmarkRow';
 

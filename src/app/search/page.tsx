@@ -6,7 +6,8 @@ import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { SearchBox } from '@/components/SearchBox';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
-import { searchArticles, formatViews, relativeTime, type Article } from '@/lib/articles';
+import { searchArticles, type Article } from '@/lib/articles-server';
+import { formatViews, relativeTime } from '@/lib/articles';
 
 type Props = { searchParams: Promise<{ q?: string }> };
 

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import { findCategoryBySlug, allCategories } from '@/lib/categories';
-import { safeRelativeTime, type Article } from '@/lib/articles';
+import { safeRelativeTime } from '@/lib/articles';
+import type { Article } from '@/lib/articles-server';
 
 export function HistoryRow({ article, lastRead }: { article: Article; lastRead: string }) {
   const router = useRouter();

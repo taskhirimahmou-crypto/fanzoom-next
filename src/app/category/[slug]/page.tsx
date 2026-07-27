@@ -6,12 +6,8 @@ import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { findCategoryBySlug, type Category } from '@/lib/categories';
-import {
-  getArticlesByCategory,
-  formatViews,
-  relativeTime,
-  type Article,
-} from '@/lib/articles';
+import { getArticlesByCategory, type Article } from '@/lib/articles-server';
+import { formatViews, relativeTime } from '@/lib/articles';
 
 type Props = { params: Promise<{ slug: string }> };
 

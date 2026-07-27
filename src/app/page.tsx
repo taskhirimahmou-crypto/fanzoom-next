@@ -4,12 +4,8 @@ import type { CSSProperties } from 'react';
 import { Icon, type IconName } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
-import {
-  getHomePageData,
-  formatViews,
-  relativeTime,
-  type Article,
-} from '@/lib/articles';
+import { getHomePageData, type Article } from '@/lib/articles-server';
+import { formatViews, relativeTime } from '@/lib/articles';
 
 // ISR: صفحه هر ۶۰ ثانیه یک‌بار در پس‌زمینه بازسازی می‌شود
 export const revalidate = 60;

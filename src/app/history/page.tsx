@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
-import { safeRelativeTime, type Article } from '@/lib/articles';
-import { Icon } from '@/components/Icon';
+import { safeRelativeTime } from '@/lib/articles';
+import type { Article } from '@/lib/articles-server';
 import { Reveal } from '@/components/Reveal';
 import { HistoryRow } from '@/components/HistoryRow';
+import { Icon } from '@/components/Icon';
 
 export const metadata: Metadata = { title: 'تاریخچه‌ی مطالعه' };
 

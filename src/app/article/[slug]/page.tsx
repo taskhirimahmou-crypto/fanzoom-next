@@ -11,12 +11,8 @@ import { Reveal } from '@/components/Reveal';
 import { CommentsSection, type CommentView } from '@/components/CommentsSection';
 import { ShareButton } from '@/components/ShareButton';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
-import {
-  getArticleBySlug,
-  getRelatedArticles,
-  formatViews,
-  relativeTime,
-} from '@/lib/articles';
+import { getArticleBySlug, getRelatedArticles, type Article } from '@/lib/articles-server';
+import { formatViews, relativeTime } from '@/lib/articles';
 
 type Props = { params: Promise<{ slug: string }> };
 
