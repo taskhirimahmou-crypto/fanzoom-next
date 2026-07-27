@@ -24,12 +24,12 @@ export async function POST(req: NextRequest) {
       article: articleId,
       content: text,
       status: 'pending',
-      autodate: now, // فیلد تاریخِ واقعیِ این collection (نه created)
+      autodate: now, // فیلد تاریخِ واقعیِ این collection
     });
-    console.log('🟢 comment created → autodate =', (made as any).autodate);
     return NextResponse.json({ ok: true });
   } catch (e) {
     const resp = (e as { response?: { data?: unknown } })?.response?.data;
     console.error('🔴 Comments create error:', JSON.stringify(resp, null, 2));
-    return NextResponse.json({ ok: true });  }
+    return NextResponse.json({ error: 'ثبت نظر انجام نشد' }, { status: 400 });
+  }
 }
