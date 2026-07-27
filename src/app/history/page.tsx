@@ -12,24 +12,25 @@ export const metadata: Metadata = { title: 'تاریخچه‌ی مطالعه' };
 type HistoryEntry = { article: Article; lastRead: string };
 
 const toPersianDigits = (n: number) =>
-  n.toString().replace(/\d/g, (d) => '۰۱۳۴۵۷۸۹'[+d]);
+  n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 
 export default async function HistoryPage() {
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand → سازگار)
+  // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand در query برای جلوگیری از خطا)
   let entries: HistoryEntry[] = [];
   try {
-    const res = await pb.collection('history').getList(1, 100, {
+    const res = await pb.collection('history').getFullList({
       filter: `user = "${userId}"`,
     });
-    // ۲. خواندن مقاله‌ی هر رکورد
+
+    // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
     const loaded = await Promise.all(
-      res.items.map(async (h) => {
-        const articleId = (h as { article: string }).article;
-        const lastRead = (h as { last_read: string }).last_read;
+      res.map(async (h: any) => {
+        const articleId = h.article;
+        const lastRead = h.last_read;
         if (!articleId) return null;
         try {
           const a = await pb.collection('articles').getOne(articleId);
@@ -39,10 +40,10 @@ export default async function HistoryPage() {
         }
       }),
     );
-    // ۳. مرتب‌سازی «جدیدترین مطالعه اول» در سرور
+
     entries = loaded
       .filter((e): e is HistoryEntry => Boolean(e))
-      .sort((a, b) => (a.lastRead < b.lastRead ? 1 : -1));
+      .sort((a, b) => (a.lastRead < b.lastRead ? 1 : -1)); // جدیدترین مطالعه اول
   } catch {
     entries = [];
   }
