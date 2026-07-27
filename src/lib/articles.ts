@@ -1,5 +1,6 @@
 // src/lib/articles.ts
 import { getPocketBase } from '@/lib/pocketbase';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 import type { ArticlesResponse } from '@/lib/pb-types';
 
 /** یک مقاله (تایپ تولیدشده از schema) */
