@@ -32,10 +32,9 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     });
     return res;
-  } catch (e) {
-    const resp = (e as { response?: { data?: { data?: Record<string, unknown> } } })?.response?.data;
-    // PocketBase خطا را مستقیم یا داخل data برمی‌گرداند — هر دو را پوشش بده
-    const fields = resp?.data ?? resp;
+  } catch (e: any) { // ← تغییر کلیدی: اضافه کردن ": any" اینجا
+    const errData = e?.response?.data;
+    const fields = errData?.data ?? errData;
     const emailStr = JSON.stringify(fields?.email ?? '').toLowerCase();
 
     let msg = 'ثبت‌نام انجام نشد؛ دوباره تلاش کنید.';
