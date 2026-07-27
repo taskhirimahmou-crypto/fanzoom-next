@@ -27,9 +27,12 @@ export default async function BookmarksPage() {
   );
 
   // خواندن مقاله‌ی هر bookmark
+  // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه (به همان ترتیب)
+    // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه (به همان ترتیب)
   const articles: Article[] = [];
-  for (const bm of bmItems) {
-    const articleId = (bm as { article: string }).article;
+  for (const bm of bmResult.items) {
+    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
+    const articleId = (bm as any).article;
     if (!articleId) continue;
     try {
       const a = await pb.collection('articles').getOne(articleId);
