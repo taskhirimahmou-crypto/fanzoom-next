@@ -17,23 +17,23 @@ export default async function BookmarksPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // خواندن bookmarkها (بدون sort در PocketBase — چون خطا می‌دهد)
+  // ۱. خواندن bookmarkهای کاربر (بدون sort در query برای جلوگیری از خطای PocketBase)
   const bmItems = await pb.collection('bookmarks').getFullList({
     filter: `user = "${userId}"`,
   });
+
   // مرتب‌سازی در JavaScript (جدیدترین اول)
-  bmItems.sort(
-    (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+  bmItems.sort((a: any, b: any) => 
+    new Date(b.created).getTime() - new Date(a.created).getTime()
   );
 
-  // خواندن مقاله‌ی هر bookmark
-  // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه (به همان ترتیب)
-    // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه (به همان ترتیب)
+  // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه
   const articles: Article[] = [];
-  for (const bm of bmResult.items) {
+  for (const bm of bmItems) {
     // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
     const articleId = (bm as any).article;
     if (!articleId) continue;
+    
     try {
       const a = await pb.collection('articles').getOne(articleId);
       articles.push(a as unknown as Article);
