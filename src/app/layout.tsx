@@ -14,18 +14,18 @@ const vazir = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL('https://my-backend-fanzoom.liara.run'),
   title: {
-    default: 'فنزوم | رسانه‌ی تخصصی فناوری',
-    template: '%s | فنزوم',
+    default: 'فن زوم | رسانه‌ی تخصصی فناوری',
+    template: '%s | فن زوم',
   },
   description:
-    'فنزوم، رسانه‌ی تخصصی فناوری؛ اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.',
+    'فن زوم، رسانه‌ی تخصصی فناوری؛ اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.',
   openGraph: {
     type: 'website',
     locale: 'fa_IR',
-    siteName: 'فنزوم',
-    title: 'فنزوم | رسانه‌ی تخصصی فناوری',
+    siteName: 'فن زوم',
+    title: 'فن زوم | رسانه‌ی تخصصی فناوری',
     description: 'اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.',
   },
   twitter: { card: 'summary_large_image' },
