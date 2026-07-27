@@ -68,20 +68,18 @@ export default async function ArticlePage({ params }: Props) {
   }
 
 
-    // کامنت‌های تأییدشده‌ی این مقاله
-  // کامنت‌های تأییدشده‌ی این مقاله
-  // نکته: sort در query روی این collection خطا می‌دهد → مرتب‌سازی در سرور انجام می‌شود
+     // کامنت‌های تأییدشده‌ی این مقاله
   let comments: CommentView[] = [];
   try {
     const cRes = await pb.collection('comments').getList(1, 100, {
       filter: `article = "${article.id}" && status = "approved"`,
     });
-   
 
-    // نام نویسندگان را یک‌بار برای هر کاربر بخوان
+    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
     const userIds = [
-      ...new Set(cRes.items.map((c) => (c as { user: string }).user).filter(Boolean)),
+      ...new Set(cRes.items.map((c: any) => c.user).filter(Boolean)),
     ];
+    
     const userMap = new Map<string, { name: string; initial: string }>();
     await Promise.all(
       userIds.map(async (uid) => {
@@ -99,12 +97,13 @@ export default async function ArticlePage({ params }: Props) {
     );
 
     comments = cRes.items
-      .map((c) => {
-        const u = userMap.get((c as { user: string }).user) ?? { name: 'کاربر', initial: 'ک' };
+      .map((c: any) => {
+        const u = userMap.get(c.user) ?? { name: 'کاربر', initial: 'ک' };
         return {
           id: c.id,
-          body: (c as { content: string }).content,
-        created: (c as any).created || (c as any).autodate || (c as any).updated || '',          authorName: u.name,
+          body: c.content,
+          created: c.created || c.autodate || c.updated || '',
+          authorName: u.name,
           authorInitial: u.initial,
         };
       })
