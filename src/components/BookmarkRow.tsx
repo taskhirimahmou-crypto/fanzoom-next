@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import { findCategoryBySlug, allCategories } from '@/lib/categories';
-import { relativeTime, type Article } from '@/lib/articles';
+import { formatViews, relativeTime } from '@/lib/articles';
+import type { Article } from '@/lib/articles-server';
 
 export function BookmarkRow({ article }: { article: Article }) {
   const router = useRouter();
