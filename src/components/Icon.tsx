@@ -48,6 +48,13 @@ export type IconName =
     | 'login'
         | 'tune'
           | 'send'
+          | 'login'
+
+  | 'auto_stories'
+  | 'comment'
+  | 'send'
+  | 'check_circle'
+  | 'bookmark'
                 | 'lock'
 
   | 'manage_accounts';
