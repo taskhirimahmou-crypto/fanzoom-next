@@ -6,7 +6,9 @@ import { getServerPocketBase } from '@/lib/auth-cookies';
 import { BookmarkButton } from '@/components/BookmarkButton';
 import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
+import { ReadingTracker } from '@/components/ReadingTracker';
 import { Reveal } from '@/components/Reveal';
+import { CommentsSection, type CommentView } from '@/components/CommentsSection';
 import { ShareButton } from '@/components/ShareButton';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import {
@@ -64,6 +66,55 @@ export default async function ArticlePage({ params }: Props) {
       bookmarked = false;
     }
   }
+
+
+    // کامنت‌های تأییدشده‌ی این مقاله
+  // کامنت‌های تأییدشده‌ی این مقاله
+  // نکته: sort در query روی این collection خطا می‌دهد → مرتب‌سازی در سرور انجام می‌شود
+  let comments: CommentView[] = [];
+  try {
+    const cRes = await pb.collection('comments').getList(1, 100, {
+      filter: `article = "${article.id}" && status = "approved"`,
+    });
+   
+
+    // نام نویسندگان را یک‌بار برای هر کاربر بخوان
+    const userIds = [
+      ...new Set(cRes.items.map((c) => (c as { user: string }).user).filter(Boolean)),
+    ];
+    const userMap = new Map<string, { name: string; initial: string }>();
+    await Promise.all(
+      userIds.map(async (uid) => {
+        try {
+          const u = (await pb.collection('users').getOne(uid)) as {
+            displayName?: string;
+            email?: string;
+          };
+          const name = u.displayName || u.email || 'کاربر';
+          userMap.set(uid, { name, initial: name[0] || 'ک' });
+        } catch {
+          userMap.set(uid, { name: 'کاربر', initial: 'ک' });
+        }
+      }),
+    );
+
+    comments = cRes.items
+      .map((c) => {
+        const u = userMap.get((c as { user: string }).user) ?? { name: 'کاربر', initial: 'ک' };
+        return {
+          id: c.id,
+          body: (c as { content: string }).content,
+        created: (c as any).created || (c as any).autodate || (c as any).updated || '',          authorName: u.name,
+          authorInitial: u.initial,
+        };
+      })
+      .sort((a, b) => (a.created < b.created ? 1 : -1)); // جدیدترین اول
+  } catch {
+    comments = [];
+  }
+  // ── پایان تست تشخیصی ──
+
+
 
   return (
     <main className="relative">
@@ -165,6 +216,12 @@ export default async function ArticlePage({ params }: Props) {
             className="article-content mt-10"
             dangerouslySetInnerHTML={{ __html: article.content }}
           />
+                  <ReadingTracker articleId={article.id} signedIn={!!userId} />
+                  <CommentsSection
+          articleId={article.id}
+          signedIn={!!userId}
+          comments={comments}
+        />
         </Reveal>
 
         {/* مقالات مرتبط */}

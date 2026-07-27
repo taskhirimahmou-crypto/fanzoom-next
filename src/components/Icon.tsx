@@ -40,10 +40,14 @@ export type IconName =
   | 'logout'
     | 'logout'
   | 'calendar_month'
+    | 'history'
+  | 'history_toggle_off'
+    | 'person_add'
   | 'edit_note'
     | 'name'
     | 'login'
         | 'tune'
+          | 'send'
                 | 'lock'
 
   | 'manage_accounts';

@@ -48,7 +48,8 @@ export function UserMenu({ user }: { user: CurrentUser }) {
       </button>
 
       <div
-        className={`absolute left-0 top-full z-50 mt-2 w-60 origin-top rounded-xl border border-outline-variant/60 bg-surface-container-high p-1.5 shadow-2 transition-all duration-200 ease-standard ${
+        style={{ backgroundColor: 'var(--color-surface)' }}
+        className={`absolute left-0 top-full z-50 mt-2 w-60 origin-top rounded-xl border border-outline-variant bg-surface-container-high p-1.5 shadow-3 transition-all duration-200 ease-standard ${
           open ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
         }`}
       >
@@ -74,12 +75,26 @@ export function UserMenu({ user }: { user: CurrentUser }) {
           <Icon name="bookmark" className="text-xl text-on-surface-variant" />
           نشان‌شده‌ها
         </Link>
+
+        <Link
+          href="/history"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-on-surface/8"
+        >
+          <Icon name="history" className="text-xl text-on-surface-variant" />
+          تاریخچه
+        </Link>
+
+
         <button
           type="button"
           onClick={logout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-error transition-colors hover:bg-error/10"
         >
           <Icon name="logout" className="text-xl" />
+
+
+          
           خروج
         </button>
       </div>

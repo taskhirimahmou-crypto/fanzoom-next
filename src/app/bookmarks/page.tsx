@@ -17,15 +17,27 @@ export default async function BookmarksPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // خواندن نشان‌شده‌های کاربر
-  const result = await pb.collection('bookmarks').getList(1, 100, {
+  // خواندن bookmarkها (بدون sort در PocketBase — چون خطا می‌دهد)
+  const bmItems = await pb.collection('bookmarks').getFullList({
     filter: `user = "${userId}"`,
-    expand: 'article',
-    sort: '-created',
   });
-  const articles = result.items
-    .map((b) => (b.expand as { article?: Article })?.article)
-    .filter((a): a is Article => Boolean(a));
+  // مرتب‌سازی در JavaScript (جدیدترین اول)
+  bmItems.sort(
+    (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+  );
+
+  // خواندن مقاله‌ی هر bookmark
+  const articles: Article[] = [];
+  for (const bm of bmItems) {
+    const articleId = (bm as { article: string }).article;
+    if (!articleId) continue;
+    try {
+      const a = await pb.collection('articles').getOne(articleId);
+      articles.push(a as unknown as Article);
+    } catch {
+      // مقاله حذف شده یا در دسترس نیست — رد کن
+    }
+  }
 
   return (
     <main className="relative">

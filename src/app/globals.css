@@ -27,6 +27,12 @@
   --color-surface-lowest: var(--md-surface-lowest);
   --color-surface-low: var(--md-surface-low);
   --color-surface-container: var(--md-surface-container);
+    --color-surface-container: var(--md-surface-container);
+  --color-surface-container-lowest: var(--md-surface-lowest);   /* ← جدید */
+  --color-surface-container-low: var(--md-surface-low);         /* ← جدید */
+  --color-surface-container-high: var(--md-surface-high);       /* ← جدید */
+  --color-surface-container-highest: var(--md-surface-highest); /* ← جدید */
+  --color-surface-high: var(--md-surface-high);
   --color-surface-high: var(--md-surface-high);
   --color-surface-highest: var(--md-surface-highest);
   --color-outline: var(--md-outline);
@@ -279,4 +285,9 @@ html {
   font-size: 0.9em;
   direction: ltr;
   display: inline-block;
+}
+/* جلوگیری از اسکرول افقی در موبایل */
+html,
+body {
+  overflow-x: hidden;
 }

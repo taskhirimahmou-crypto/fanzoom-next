@@ -88,6 +88,17 @@ export function relativeTime(dateStr: string): string {
   if (day < 30) return `${day.toLocaleString('fa-IR')} روز پیش`;
   return new Date(dateStr).toLocaleDateString('fa-IR');
 }
+/** نمایش امن زمان — هرگز «Invalid Date» برنمی‌گرداند؛ اگر تاریخ نبود null می‌دهد */
+export const safeRelativeTime = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const fixed = iso.includes('T') ? iso : iso.replace(' ', 'T');
+  const d = new Date(fixed);
+  if (isNaN(d.getTime())) {
+    const only = new Date(fixed.slice(0, 10));
+    return isNaN(only.getTime()) ? null : only.toLocaleDateString('fa-IR');
+  }
+  return relativeTime(fixed);
+};
 /* ── توابع فاز ۴: صفحه‌ی مقاله، دسته، جستجو ── */
 
 /** یک مقاله بر اساس slug (برای صفحه‌ی مقاله) */

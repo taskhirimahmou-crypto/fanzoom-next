@@ -153,11 +153,25 @@ export default function LoginPage() {
               placeholder="حداقل ۸ کاراکتر"
               required
             />
-
             {error && (
-              <div className="flex items-center gap-2.5 rounded-xl bg-error/10 px-4 py-3 text-sm font-medium text-error">
-                <Icon name="error" className="text-lg shrink-0" />
-                {error}
+              <div className="rounded-xl bg-error/10 px-4 py-3">
+                <div className="flex items-center gap-2.5 text-sm font-medium text-error">
+                  <Icon name="error" className="shrink-0 text-lg" />
+                  {error}
+                </div>
+                {error.includes('قبلاً ثبت شده') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError('');
+                    }}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-error px-4 py-1.5 text-xs font-bold text-on-error transition-all duration-200 ease-standard hover:brightness-110 active:scale-95"
+                  >
+                    <Icon name="login" className="text-sm" />
+                    رفتن به تب ورود
+                  </button>
+                )}
               </div>
             )}
 

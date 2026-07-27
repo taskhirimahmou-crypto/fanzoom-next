@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Vazirmatn } from 'next/font/google';
-import Script from 'next/script';
 import 'material-symbols/rounded.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
@@ -32,12 +31,9 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image' },
 };
 
-const THEME_INIT = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
-
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // خواندن کاربر لاگین‌شده از کوکی (برای SSR)
   const pb = await getServerPocketBase();
   const record = pb.authStore.record as
     | { id: string; email: string; displayName?: string }
@@ -46,7 +42,7 @@ export default async function RootLayout({
     ? { id: record.id, email: record.email, displayName: record.displayName }
     : null;
 
-    return (
+  return (
     <html
       lang="fa"
       dir="rtl"
@@ -54,13 +50,6 @@ export default async function RootLayout({
       className={`${vazir.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <Script
-          id="theme-no-flash"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: THEME_INIT }}
-        />
-      </head>
       <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">

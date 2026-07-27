@@ -2,12 +2,12 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useState,
   type ReactNode,
 } from 'react';
+import { useServerInsertedHTML } from 'next/navigation';
 
 type Theme = 'light' | 'dark';
 
@@ -21,35 +21,36 @@ const ThemeContext = createContext<ThemeContextValue>({
   toggle: () => {},
 });
 
-export function useTheme() {
-  return useContext(ThemeContext);
-}
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
+  // اسکریپت no-flash را خارج از درخت React تزریق می‌کند → بدون هشدار React 19
+  useServerInsertedHTML(() => (
+    <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+  ));
+
   useEffect(() => {
-    setTheme(
-      document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-    );
+    const stored = localStorage.getItem('theme') as Theme | null;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(stored ?? (prefersDark ? 'dark' : 'light'));
   }, []);
 
-  const toggle = useCallback(() => {
-    setTheme((prev) => {
-      const next: Theme = prev === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('dark', next === 'dark');
-      try {
-        localStorage.setItem('theme', next);
-      } catch {
-        /* storage در دسترس نیست — بی‌ضرر */
-      }
-      return next;
-    });
-  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>
       {children}
     </ThemeContext.Provider>
   );
+}
+
+export function useTheme() {
+  return useContext(ThemeContext);
 }
