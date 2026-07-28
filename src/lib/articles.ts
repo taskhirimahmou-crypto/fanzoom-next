@@ -30,3 +30,17 @@ export const safeRelativeTime = (iso: string | null | undefined): string | null 
   }
   return relativeTime(fixed);
 };
+// src/lib/articles.ts
+
+/**
+ * ساخت آدرس تصویر مقاله
+ * - خالی → رشته‌ی خالی
+ * - URL کامل (http) → مستقیم برمی‌گرداند (سازگاری با داده‌های قدیمی)
+ * - نام فایل → آدرس عمومی فایل در PocketBase را می‌سازد
+ */
+export function getImageUrl(article: { id: string; image?: string | null }): string {
+  if (!article.image) return '';
+  if (article.image.startsWith('http')) return article.image;
+  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
+  return `${pbUrl}/api/files/articles/${article.id}/${article.image}`;
+}
