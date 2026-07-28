@@ -1,17 +1,24 @@
 // src/lib/articles-server.ts
 import { getPocketBase } from '@/lib/pocketbase';
 import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getImageUrl } from '@/lib/articles';
 import type { ArticlesResponse } from '@/lib/pb-types';
 
 export type Article = ArticlesResponse;
 const PUBLISHED = 'status = "published"';
 
+// ✅ تبدیلِ یک‌باره: نامِ فایلِ PB → URL کاملِ لیارا (برای داده‌های قدیمیِ URLدار هم امن است)
+function resolveImage<T extends { id: string; image?: string | null }>(article: T): T {
+  return { ...article, image: getImageUrl(article) };
+}
+
 export async function getFeaturedArticle(): Promise<Article | null> {
   const pb = getPocketBase();
   try {
-    return await pb.collection('articles').getFirstListItem(`${PUBLISHED} && featured = true`, {
+    const item = await pb.collection('articles').getFirstListItem(`${PUBLISHED} && featured = true`, {
       sort: '-publishedAt',
     }) as unknown as Article;
+    return resolveImage(item);
   } catch {
     return null;
   }
@@ -24,7 +31,7 @@ export async function getSecondaryArticles(limit = 2): Promise<Article[]> {
     sort: '-publishedAt',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function getLatestArticles(limit = 5): Promise<Article[]> {
@@ -34,7 +41,7 @@ export async function getLatestArticles(limit = 5): Promise<Article[]> {
     sort: '-publishedAt',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function getTrendingArticles(limit = 5): Promise<Article[]> {
@@ -44,7 +51,7 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
     sort: '-views',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function getHomePageData() {
@@ -60,7 +67,8 @@ export async function getHomePageData() {
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const pb = getPocketBase();
   try {
-    return await pb.collection('articles').getFirstListItem(pb.filter('slug = {:slug}', { slug })) as unknown as Article;
+    const item = await pb.collection('articles').getFirstListItem(pb.filter('slug = {:slug}', { slug })) as unknown as Article;
+    return resolveImage(item);
   } catch {
     return null;
   }
@@ -73,7 +81,7 @@ export async function getArticlesByCategory(categorySlug: string, limit = 20): P
     sort: '-publishedAt',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function searchArticles(query: string, limit = 20): Promise<Article[]> {
@@ -85,7 +93,7 @@ export async function searchArticles(query: string, limit = 20): Promise<Article
     sort: '-publishedAt',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function getRelatedArticles(article: Article, limit = 3): Promise<Article[]> {
@@ -98,7 +106,7 @@ export async function getRelatedArticles(article: Article, limit = 3): Promise<A
     sort: '-publishedAt',
     skipTotal: true,
   });
-  return items as unknown as Article[];
+  return (items as unknown as Article[]).map(resolveImage);
 }
 
 export async function getBookmarkedArticles(userId: string): Promise<Article[]> {
@@ -110,5 +118,6 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
   });
   return items
     .map((b) => (b.expand as { article?: Article })?.article)
-    .filter((a): a is Article => Boolean(a));
+    .filter((a): a is Article => Boolean(a))
+    .map(resolveImage);
 }
