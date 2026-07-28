@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getImageUrl } from '@/lib/articles';
 import { Icon } from '@/components/Icon';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import { findCategoryBySlug, allCategories } from '@/lib/categories';

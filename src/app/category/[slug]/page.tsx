@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
+import { getImageUrl } from '@/lib/articles';
 import { findCategoryBySlug, type Category } from '@/lib/categories';
 import { getArticlesByCategory, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
@@ -32,7 +33,7 @@ function LeadCard({ article, cat }: { article: Article; cat: Category }) {
       className="group grid overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3 md:grid-cols-[280px_1fr]"
     >
             <ArticleVisual
-        image={article.image}
+        image={getImageUrl(article)}
         title={article.title}
         cat={cat}
         className="h-48 md:h-full"
@@ -69,7 +70,7 @@ function RowCard({ article, cat }: { article: Article; cat: Category }) {
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
             <ArticleVisual
-        image={article.image}
+        image={getImageUrl(article)}
         title={article.title}
         cat={cat}
         className="h-20 w-20 shrink-0 rounded-xl"

@@ -6,6 +6,8 @@ import { Reveal } from '@/components/Reveal';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
+import { getImageUrl } from '@/lib/articles';
+
 
 // ISR: صفحه هر ۶۰ ثانیه یک‌بار در پس‌زمینه بازسازی می‌شود
 export const revalidate = 60;
@@ -39,7 +41,7 @@ function FeaturedCard({ article }: { article: Article }) {
     >
                   <div className="relative">
         <ArticleVisual
-          image={article.image}
+          image={getImageUrl(article)}
           title={article.title}
           cat={cat}
           className="h-56 md:h-72"
@@ -83,7 +85,7 @@ function SecondaryCard({ article }: { article: Article }) {
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
     >
             <ArticleVisual
-        image={article.image}
+        image={getImageUrl(article)}
         title={article.title}
         cat={cat}
         className="h-28"
@@ -119,7 +121,7 @@ function LatestRow({ article }: { article: Article }) {
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
             <ArticleVisual
-        image={article.image}
+        image={getImageUrl(article)}
         title={article.title}
         cat={cat}
         className="h-20 w-20 shrink-0 rounded-xl"

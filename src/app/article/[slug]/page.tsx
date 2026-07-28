@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { ReadingTracker } from '@/components/ReadingTracker';
 import { Reveal } from '@/components/Reveal';
+import { getImageUrl } from '@/lib/articles';
 import { CommentsSection, type CommentView } from '@/components/CommentsSection';
 import { ShareButton } from '@/components/ShareButton';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: article.title,
       description: article.excerpt,
       type: 'article',
-      ...(article.image ? { images: [{ url: article.image }] } : {}),
+      ...(getImageUrl(article) ? { images: [{ url: getImageUrl(article) }] } : {}),
     },
   };
 }
@@ -197,7 +198,7 @@ export default async function ArticlePage({ params }: Props) {
         {/* hero tonal با آیکون دسته */}
                 <Reveal delay={260}>
           <ArticleVisual
-            image={article.image}
+            image={getImageUrl(article)}
             title={article.title}
             cat={cat}
             className="mt-8 h-64 rounded-2xl border border-outline-variant/60 md:h-80"

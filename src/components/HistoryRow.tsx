@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
+import { getImageUrl } from '@/lib/articles';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import { findCategoryBySlug, allCategories } from '@/lib/categories';
 import { safeRelativeTime } from '@/lib/articles';

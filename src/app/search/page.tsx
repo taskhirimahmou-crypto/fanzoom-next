@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
+import { getImageUrl } from '@/lib/articles';
+
 import { SearchBox } from '@/components/SearchBox';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { searchArticles, type Article } from '@/lib/articles-server';
@@ -31,7 +33,7 @@ function ResultRow({ article }: { article: Article }) {
       className="group flex gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all duration-300 ease-standard hover:-translate-y-0.5 hover:shadow-2"
     >
             <ArticleVisual
-        image={article.image}
+        image={getImageUrl(article)}
         title={article.title}
         cat={cat}
         className="h-20 w-20 shrink-0 rounded-xl"
