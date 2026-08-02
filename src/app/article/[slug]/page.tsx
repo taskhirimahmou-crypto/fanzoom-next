@@ -69,7 +69,7 @@ export default async function ArticlePage({ params }: Props) {
   let comments: CommentView[] = [];
   try {
     const cRes = await pb.collection('comments').getList(1, 100, {
-      filter: `article = "${article.id}" && status = "approved"`,
+      filter: pb.filter('article = {:aid} && status = "approved"', { aid: article.id }),
     });
 
     // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
