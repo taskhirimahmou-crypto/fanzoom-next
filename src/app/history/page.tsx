@@ -20,27 +20,21 @@ export default async function HistoryPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand در query برای جلوگیری از خطا)
+  // ۱. خواندن رکوردهای تاریخچه (با expand برای جلوگیری از خطای N+1)
   let entries: HistoryEntry[] = [];
   try {
     const res = await pb.collection('history').getFullList({
       filter: `user = "${userId}"`,
+      expand: 'article',
     });
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
-    const loaded = await Promise.all(
-      res.map(async (h: any) => {
-        const articleId = h.article;
-        const lastRead = h.last_read;
-        if (!articleId) return null;
-        try {
-          const a = await pb.collection('articles').getOne(articleId);
-          return { article: a as unknown as Article, lastRead } as HistoryEntry;
-        } catch {
-          return null; // مقاله حذف شده
-        }
-      }),
-    );
+    const loaded = res.map((h: any) => {
+      const article = h.expand?.article;
+      const lastRead = h.last_read;
+      if (!article) return null; // مقاله حذف شده یا وجود ندارد
+      return { article: article as unknown as Article, lastRead } as HistoryEntry;
+    });
 
     entries = loaded
       .filter((e): e is HistoryEntry => Boolean(e))
