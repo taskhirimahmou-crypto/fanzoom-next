@@ -18,7 +18,7 @@ export default async function BookmarksPage() {
 
   // ۱. خواندن bookmarkهای کاربر (بدون sort در query برای جلوگیری از خطای PocketBase)
   const bmItems = await pb.collection('bookmarks').getFullList({
-    filter: `user = "${userId}"`,
+    filter: pb.filter('user = {:userId}', { userId }),
   });
 
   // مرتب‌سازی در JavaScript (جدیدترین اول)

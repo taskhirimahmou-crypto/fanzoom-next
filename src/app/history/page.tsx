@@ -24,7 +24,7 @@ export default async function HistoryPage() {
   let entries: HistoryEntry[] = [];
   try {
     const res = await pb.collection('history').getFullList({
-      filter: `user = "${userId}"`,
+      filter: pb.filter('user = {:userId}', { userId }),
     });
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
