@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
-import type { Article } from '@/lib/articles-server';import { Icon } from '@/components/Icon';
+import type { Article } from '@/lib/articles-server';
+import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { BookmarkRow } from '@/components/BookmarkRow';
+import type { BookmarksResponse } from '@/lib/pb-types';
 
 export const metadata: Metadata = { title: 'نشان‌شده‌های من' };
 
@@ -17,20 +19,19 @@ export default async function BookmarksPage() {
   if (!userId) redirect('/login');
 
   // ۱. خواندن bookmarkهای کاربر (بدون sort در query برای جلوگیری از خطای PocketBase)
-  const bmItems = await pb.collection('bookmarks').getFullList({
+  const bmItems = await pb.collection('bookmarks').getFullList<BookmarksResponse>({
     filter: `user = "${userId}"`,
   });
 
   // مرتب‌سازی در JavaScript (جدیدترین اول)
-  bmItems.sort((a: any, b: any) => 
+  bmItems.sort((a, b) =>
     new Date(b.created).getTime() - new Date(a.created).getTime()
   );
 
   // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه
   const articles: Article[] = [];
   for (const bm of bmItems) {
-    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const articleId = (bm as any).article;
+    const articleId = bm.article;
     if (!articleId) continue;
     
     try {
