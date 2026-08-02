@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import type { Metadata } from 'next';
+import type { CommentsResponse } from '@/lib/pb-types';
 import { notFound } from 'next/navigation';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { BookmarkButton } from '@/components/BookmarkButton';
@@ -22,6 +23,8 @@ const toPersianDigits = (n: number) =>
 
 const toneStyle = (tone: string) =>
   ({ '--c': `var(--cat-${tone})` }) as CSSProperties;
+
+type CommentWithSys = CommentsResponse & { created: string; updated: string; autodate?: string };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -68,13 +71,13 @@ export default async function ArticlePage({ params }: Props) {
      // کامنت‌های تأییدشده‌ی این مقاله
   let comments: CommentView[] = [];
   try {
-    const cRes = await pb.collection('comments').getList(1, 100, {
+    const cRes = await pb.collection<CommentWithSys>('comments').getList(1, 100, {
       filter: `article = "${article.id}" && status = "approved"`,
     });
 
     // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
     const userIds = [
-      ...new Set(cRes.items.map((c: any) => c.user).filter(Boolean)),
+      ...new Set(cRes.items.map((c) => c.user).filter(Boolean)),
     ];
     
     const userMap = new Map<string, { name: string; initial: string }>();
@@ -94,7 +97,7 @@ export default async function ArticlePage({ params }: Props) {
     );
 
     comments = cRes.items
-      .map((c: any) => {
+      .map((c) => {
         const u = userMap.get(c.user) ?? { name: 'کاربر', initial: 'ک' };
         return {
           id: c.id,

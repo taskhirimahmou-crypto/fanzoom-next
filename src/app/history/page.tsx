@@ -4,11 +4,14 @@ import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { safeRelativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
+import type { ReadingHistoryResponse } from '@/lib/pb-types';
 import { Reveal } from '@/components/Reveal';
 import { HistoryRow } from '@/components/HistoryRow';
 import { Icon } from '@/components/Icon';
 
 export const metadata: Metadata = { title: 'تاریخچه‌ی مطالعه' };
+
+type HistoryWithSys = ReadingHistoryResponse & { created: string; updated: string; last_read: string };
 
 type HistoryEntry = { article: Article; lastRead: string };
 
@@ -23,13 +26,13 @@ export default async function HistoryPage() {
   // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand در query برای جلوگیری از خطا)
   let entries: HistoryEntry[] = [];
   try {
-    const res = await pb.collection('history').getFullList({
+    const res = await pb.collection<HistoryWithSys>('history').getFullList({
       filter: `user = "${userId}"`,
     });
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
     const loaded = await Promise.all(
-      res.map(async (h: any) => {
+      res.map(async (h) => {
         const articleId = h.article;
         const lastRead = h.last_read;
         if (!articleId) return null;

@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
       });
     }
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error('🔴 history upsert error:', JSON.stringify((e as any)?.response?.data, null, 2));
+  } catch (e: unknown) {
+    console.error('🔴 history upsert error:', JSON.stringify((e as { response?: { data?: unknown } })?.response?.data, null, 2));
     return NextResponse.json({ error: 'failed' }, { status: 400 });
   }
 }
@@ -49,8 +49,8 @@ export async function DELETE(req: NextRequest) {
       await pb.collection('history').delete(existing.items[0].id);
     }
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error('🔴 history delete error:', JSON.stringify((e as any)?.response?.data, null, 2));
+  } catch (e: unknown) {
+    console.error('🔴 history delete error:', JSON.stringify((e as { response?: { data?: unknown } })?.response?.data, null, 2));
     return NextResponse.json({ error: 'failed' }, { status: 400 });
   }
 }

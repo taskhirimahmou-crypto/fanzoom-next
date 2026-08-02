@@ -1,3 +1,4 @@
+import { ClientResponseError } from 'pocketbase';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPocketBase } from '@/lib/pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
@@ -32,10 +33,10 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     });
     return res;
-  } catch (e: any) { // ← تغییر کلیدی: اضافه کردن ": any" اینجا
-    const errData = e?.response?.data;
-    const fields = errData?.data ?? errData;
-    const emailStr = JSON.stringify(fields?.email ?? '').toLowerCase();
+  } catch (e: unknown) {
+    const errData = e instanceof ClientResponseError ? e.response?.data : null;
+    const fields = (errData as { data?: unknown })?.data ?? errData;
+    const emailStr = JSON.stringify((fields as { email?: unknown })?.email ?? '').toLowerCase();
 
     let msg = 'ثبت‌نام انجام نشد؛ دوباره تلاش کنید.';
     if (
