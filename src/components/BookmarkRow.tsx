@@ -3,11 +3,10 @@
 import { useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getImageUrl } from '@/lib/articles';
 import { Icon } from '@/components/Icon';
 import { ArticleVisual } from '@/components/ArticleVisual';
 import { findCategoryBySlug, allCategories } from '@/lib/categories';
-import { formatViews, relativeTime } from '@/lib/articles';
+import { relativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
 
 export function BookmarkRow({ article }: { article: Article }) {

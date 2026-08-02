@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
-import type { Article } from '@/lib/articles-server';import { Icon } from '@/components/Icon';
+import type { Article } from '@/lib/articles-server';
+import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { BookmarkRow } from '@/components/BookmarkRow';
 
@@ -22,15 +23,15 @@ export default async function BookmarksPage() {
   });
 
   // مرتب‌سازی در JavaScript (جدیدترین اول)
-  bmItems.sort((a: any, b: any) => 
-    new Date(b.created).getTime() - new Date(a.created).getTime()
+  bmItems.sort((a: unknown, b: unknown) =>
+    new Date((b as { created: string }).created).getTime() - new Date((a as { created: string }).created).getTime()
   );
 
   // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه
   const articles: Article[] = [];
   for (const bm of bmItems) {
-    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const articleId = (bm as any).article;
+    // استفاده از unknown برای دور زدن سخت‌گیری TypeScript روی RecordModel
+    const articleId = (bm as { article?: string }).article;
     if (!articleId) continue;
     
     try {
