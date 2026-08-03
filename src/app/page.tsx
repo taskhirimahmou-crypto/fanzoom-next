@@ -180,7 +180,7 @@ export default async function HomePage() {
   const breakingNews = latest.map((a) => a.title);
 
   return (
-    <main className="relative">
+    <main className="relative pcb-bg">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-gradient-to-b from-primary-container/20 to-transparent"
