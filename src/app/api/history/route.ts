@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   try {
     const existing = await pb.collection('history').getList(1, 1, {
-      filter: `user = "${uid}" && article = "${articleId}"`,
+      filter: pb.filter('user = {:uid} && article = {:aid}', { uid, aid: articleId }),
     });
     if (existing.items.length > 0) {
       await pb.collection('history').update(existing.items[0].id, { last_read: now });
@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const existing = await pb.collection('history').getList(1, 1, {
-      filter: `user = "${uid}" && article = "${articleId}"`,
+      filter: pb.filter('user = {:uid} && article = {:aid}', { uid, aid: articleId }),
     });
     if (existing.items.length > 0) {
       await pb.collection('history').delete(existing.items[0].id);
