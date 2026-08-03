@@ -63,56 +63,56 @@
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
 }
 
-/* ====== مقادیر رنگ: روشن ====== */
+/* ====== مقادیر رنگ: روشن (Cyber-Material Light) ====== */
 :root {
-  --md-primary: #0061a4;
-  --md-on-primary: #ffffff;
-  --md-primary-container: #d1e4ff;
-  --md-on-primary-container: #001d36;
-  --md-secondary: #535f70;
+  --md-primary: #39ff14;
+  --md-on-primary: #000000;
+  --md-primary-container: #e8ffe0;
+  --md-on-primary-container: #0a2e00;
+  --md-secondary: #4a5560;
   --md-on-secondary: #ffffff;
-  --md-secondary-container: #d7e3f7;
-  --md-on-secondary-container: #101c2b;
+  --md-secondary-container: #d8e0e8;
+  --md-on-secondary-container: #0f1a20;
   --md-tertiary: #6b5778;
   --md-on-tertiary: #ffffff;
   --md-tertiary-container: #f2daff;
   --md-on-tertiary-container: #251431;
-  --md-surface: #f8f9ff;
-  --md-on-surface: #191c20;
+  --md-surface: #fafbfc;
+  --md-on-surface: #0a0a0a;
   --md-on-surface-variant: #43474e;
-  --md-surface-variant: #dfe2eb;
+  --md-surface-variant: #e0e2e5;
   --md-surface-lowest: #ffffff;
-  --md-surface-low: #f2f3fa;
-  --md-surface-container: #eceef5;
-  --md-surface-high: #e6e8ef;
-  --md-surface-highest: #e1e2e9;
+  --md-surface-low: #f5f6f8;
+  --md-surface-container: #f0f2f4;
+  --md-surface-high: #e8eaed;
+  --md-surface-highest: #e1e3e6;
   --md-outline: #73777f;
   --md-outline-variant: #c3c7cf;
-  --md-inverse-surface: #2e3135;
+  --md-inverse-surface: #1a1a1a;
   --md-inverse-on-surface: #eff0f7;
   --md-error: #ba1a1a;
   --md-on-error: #ffffff;
 
-  /* رنگ دسته‌بندی‌ها (روشن) */
-  --cat-blue: #0061a4;
-  --cat-violet: #6f43c0;
-  --cat-magenta: #b3288f;
-  --cat-red: #c01a1a;
-  --cat-green: #1f7a3d;
-  --cat-teal: #007a6e;
-  --cat-amber: #9a5b00;
-  --cat-indigo: #4a55c4;
-  --cat-cyan: #0077a8;
-  --cat-fuchsia: #a8329a;
+  /* رنگ دسته‌بندی‌ها (روشن - Cyber-Material) */
+  --cat-blue: #0066ff;
+  --cat-violet: #7c4dff;
+  --cat-magenta: #ff1493;
+  --cat-red: #ff3333;
+  --cat-green: #39ff14;
+  --cat-teal: #00bcd4;
+  --cat-amber: #ffb300;
+  --cat-indigo: #536dfe;
+  --cat-cyan: #00e5ff;
+  --cat-fuchsia: #ff4081;
   --cat-slate: #5b6470;
 }
 
-/* ====== مقادیر رنگ: تاریک ====== */
+/* ====== مقادیر رنگ: تاریک (Cyber-Material Dark) ====== */
 .dark {
-  --md-primary: #9ecaff;
-  --md-on-primary: #003258;
-  --md-primary-container: #00497d;
-  --md-on-primary-container: #d1e4ff;
+  --md-primary: #39ff14;
+  --md-on-primary: #000000;
+  --md-primary-container: #0a2e00;
+  --md-on-primary-container: #b8ffb0;
   --md-secondary: #bbc7db;
   --md-on-secondary: #263140;
   --md-secondary-container: #3c4858;
@@ -121,15 +121,15 @@
   --md-on-tertiary: #3c2948;
   --md-tertiary-container: #523f5f;
   --md-on-tertiary-container: #f2daff;
-  --md-surface: #111418;
+  --md-surface: #131313;
   --md-on-surface: #e1e2e9;
   --md-on-surface-variant: #c3c7cf;
-  --md-surface-variant: #43474e;
-  --md-surface-lowest: #0b0e13;
-  --md-surface-low: #191c20;
-  --md-surface-container: #1d2024;
-  --md-surface-high: #282a2f;
-  --md-surface-highest: #33353a;
+  --md-surface-variant: #2a2a2a;
+  --md-surface-lowest: #0a0a0a;
+  --md-surface-low: #1a1a1a;
+  --md-surface-container: #1f1f1f;
+  --md-surface-high: #2a2a2a;
+  --md-surface-highest: #333333;
   --md-outline: #8d9199;
   --md-outline-variant: #43474e;
   --md-inverse-surface: #e1e2e9;
@@ -137,16 +137,17 @@
   --md-error: #ffb4ab;
   --md-on-error: #690005;
 
-  --cat-blue: #9ecaff;
-  --cat-violet: #d0bcff;
-  --cat-magenta: #ffb0e0;
-  --cat-red: #ffb4ab;
-  --cat-green: #86d99a;
-  --cat-teal: #70d8c8;
-  --cat-amber: #ffbe6a;
-  --cat-indigo: #b8c0ff;
-  --cat-cyan: #8fd3ff;
-  --cat-fuchsia: #ffb2f0;
+  /* رنگ دسته‌بندی‌ها (تاریک - Cyberpunk Neon) */
+  --cat-blue: #00ccff;
+  --cat-violet: #bb86fc;
+  --cat-magenta: #ff00ff;
+  --cat-red: #ff3333;
+  --cat-green: #39ff14;
+  --cat-teal: #00ffff;
+  --cat-amber: #ffcc00;
+  --cat-indigo: #7c4dff;
+  --cat-cyan: #00e5ff;
+  --cat-fuchsia: #ff4081;
   --cat-slate: #c3c7cf;
 }
 
