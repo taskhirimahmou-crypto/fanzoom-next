@@ -3,6 +3,7 @@ import { getPocketBase } from '@/lib/pocketbase';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getImageUrl } from '@/lib/articles';
 import type { ArticlesResponse } from '@/lib/pb-types';
+import { cache } from 'react';
 
 export type Article = ArticlesResponse;
 const PUBLISHED = 'status = "published"';
@@ -12,7 +13,8 @@ function resolveImage<T extends { id: string; image?: string | null }>(article: 
   return { ...article, image: getImageUrl(article) };
 }
 
-export async function getFeaturedArticle(): Promise<Article | null> {
+// Cache PocketBase instance per request to avoid redundant API calls
+const getFeaturedArticleCached = cache(async (): Promise<Article | null> => {
   const pb = getPocketBase();
   try {
     const item = await pb.collection('articles').getFirstListItem(`${PUBLISHED} && featured = true`, {
@@ -22,9 +24,9 @@ export async function getFeaturedArticle(): Promise<Article | null> {
   } catch {
     return null;
   }
-}
+});
 
-export async function getSecondaryArticles(limit = 2): Promise<Article[]> {
+const getSecondaryArticlesCached = cache(async (limit = 2): Promise<Article[]> => {
   const pb = getPocketBase();
   const { items } = await pb.collection('articles').getList(1, limit, {
     filter: `${PUBLISHED} && featured = false`,
@@ -32,9 +34,9 @@ export async function getSecondaryArticles(limit = 2): Promise<Article[]> {
     skipTotal: true,
   });
   return (items as unknown as Article[]).map(resolveImage);
-}
+});
 
-export async function getLatestArticles(limit = 5): Promise<Article[]> {
+const getLatestArticlesCached = cache(async (limit = 5): Promise<Article[]> => {
   const pb = getPocketBase();
   const { items } = await pb.collection('articles').getList(1, limit, {
     filter: PUBLISHED,
@@ -42,9 +44,9 @@ export async function getLatestArticles(limit = 5): Promise<Article[]> {
     skipTotal: true,
   });
   return (items as unknown as Article[]).map(resolveImage);
-}
+});
 
-export async function getTrendingArticles(limit = 5): Promise<Article[]> {
+const getTrendingArticlesCached = cache(async (limit = 5): Promise<Article[]> => {
   const pb = getPocketBase();
   const { items } = await pb.collection('articles').getList(1, limit, {
     filter: PUBLISHED,
@@ -52,6 +54,22 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
     skipTotal: true,
   });
   return (items as unknown as Article[]).map(resolveImage);
+});
+
+export async function getFeaturedArticle(): Promise<Article | null> {
+  return getFeaturedArticleCached();
+}
+
+export async function getSecondaryArticles(limit = 2): Promise<Article[]> {
+  return getSecondaryArticlesCached(limit);
+}
+
+export async function getLatestArticles(limit = 5): Promise<Article[]> {
+  return getLatestArticlesCached(limit);
+}
+
+export async function getTrendingArticles(limit = 5): Promise<Article[]> {
+  return getTrendingArticlesCached(limit);
 }
 
 export async function getHomePageData() {
