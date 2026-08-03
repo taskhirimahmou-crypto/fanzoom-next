@@ -3,11 +3,12 @@
 /* dark mode با کلاس (نه prefers-color-scheme) */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ====== توکن‌های Material 3 → utilityهای Tailwind ====== */
+/* ====== توکن‌های Cyber-PCB Brand ====== */
 @theme inline {
   --font-sans: var(--font-vazir), system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  /* color roles */
+  /* color roles - مقادیر پیش‌فرض (لایت‌مود) */
   --color-primary: var(--md-primary);
   --color-on-primary: var(--md-on-primary);
   --color-primary-container: var(--md-primary-container);
@@ -27,14 +28,10 @@
   --color-surface-lowest: var(--md-surface-lowest);
   --color-surface-low: var(--md-surface-low);
   --color-surface-container: var(--md-surface-container);
-    --color-surface-container: var(--md-surface-container);
-  --color-surface-container-lowest: var(--md-surface-lowest);   /* ← جدید */
-  --color-surface-container-low: var(--md-surface-low);         /* ← جدید */
-  --color-surface-container-high: var(--md-surface-high);       /* ← جدید */
-  --color-surface-container-highest: var(--md-surface-highest); /* ← جدید */
-  --color-surface-high: var(--md-surface-high);
-  --color-surface-high: var(--md-surface-high);
-  --color-surface-highest: var(--md-surface-highest);
+  --color-surface-container-lowest: var(--md-surface-lowest);
+  --color-surface-container-low: var(--md-surface-low);
+  --color-surface-container-high: var(--md-surface-high);
+  --color-surface-container-highest: var(--md-surface-highest);
   --color-outline: var(--md-outline);
   --color-outline-variant: var(--md-outline-variant);
   --color-inverse-surface: var(--md-inverse-surface);
@@ -63,96 +60,108 @@
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
 }
 
-/* ====== مقادیر رنگ: روشن (Cyber-Material Light) ====== */
+/* ====== لایت‌مود (Cyber-PCB Light) ====== */
 :root {
-  --md-primary: #39ff14;
-  --md-on-primary: #000000;
-  --md-primary-container: #e8ffe0;
-  --md-on-primary-container: #0a2e00;
-  --md-secondary: #4a5560;
-  --md-on-secondary: #ffffff;
-  --md-secondary-container: #d8e0e8;
-  --md-on-secondary-container: #0f1a20;
-  --md-tertiary: #6b5778;
-  --md-on-tertiary: #ffffff;
-  --md-tertiary-container: #f2daff;
-  --md-on-tertiary-container: #251431;
-  --md-surface: #fafbfc;
-  --md-on-surface: #0a0a0a;
-  --md-on-surface-variant: #43474e;
-  --md-surface-variant: #e0e2e5;
-  --md-surface-lowest: #ffffff;
-  --md-surface-low: #f5f6f8;
-  --md-surface-container: #f0f2f4;
-  --md-surface-high: #e8eaed;
-  --md-surface-highest: #e1e3e6;
-  --md-outline: #73777f;
-  --md-outline-variant: #c3c7cf;
-  --md-inverse-surface: #1a1a1a;
-  --md-inverse-on-surface: #eff0f7;
-  --md-error: #ba1a1a;
-  --md-on-error: #ffffff;
+  /* پالت اصلی برند - لایت */
+  --md-primary: #0E8A3A;
+  --md-on-primary: #FFFFFF;
+  --md-primary-container: #D4EDDA;
+  --md-on-primary-container: #0A3D1A;
+  
+  --md-secondary: #6E8579;
+  --md-on-secondary: #FFFFFF;
+  --md-secondary-container: #E8EDEB;
+  --md-on-secondary-container: #1A2520;
+  
+  --md-tertiary: #5A7A6B;
+  --md-on-tertiary: #FFFFFF;
+  --md-tertiary-container: #E0E8E4;
+  --md-on-tertiary-container: #14241C;
+  
+  /* سطوح */
+  --md-surface: #F2F7F2;
+  --md-on-surface: #101814;
+  --md-on-surface-variant: #4A5550;
+  --md-surface-variant: #E0E5E1;
+  --md-surface-lowest: #FBFDFB;
+  --md-surface-low: #F8FAF8;
+  --md-surface-container: #FBFDFB;
+  --md-surface-container-high: #FFFFFF;
+  --md-surface-container-highest: #F5F8F5;
+  
+  --md-outline: #A8B5AD;
+  --md-outline-variant: #C9DACD;
+  --md-inverse-surface: #101814;
+  --md-inverse-on-surface: #EAF5EC;
+  
+  --md-error: #BA1A1A;
+  --md-on-error: #FFFFFF;
 
-  /* رنگ دسته‌بندی‌ها (روشن - Cyber-Material) */
-  --cat-blue: #0066ff;
-  --cat-violet: #7c4dff;
-  --cat-magenta: #ff1493;
-  --cat-red: #ff3333;
-  --cat-green: #39ff14;
-  --cat-teal: #00bcd4;
-  --cat-amber: #ffb300;
-  --cat-indigo: #536dfe;
-  --cat-cyan: #00e5ff;
-  --cat-fuchsia: #ff4081;
-  --cat-slate: #5b6470;
+  /* رنگ دسته‌بندی‌ها (لایت - نسخه‌ی ملایم‌تر برای کنتراست WCAG AA) */
+  --cat-blue: #0052CC;
+  --cat-violet: #5C3DB8;
+  --cat-magenta: #C4106B;
+  --cat-red: #C41E1E;
+  --cat-green: #0E8A3A;
+  --cat-teal: #008A99;
+  --cat-amber: #B87D00;
+  --cat-indigo: #3D51E0;
+  --cat-cyan: #00A3B8;
+  --cat-fuchsia: #C41E6B;
+  --cat-slate: #5A6A63;
 }
 
-/* ====== مقادیر رنگ: تاریک (Cyber-Material Dark) ====== */
+/* ====== دارک‌مود (Cyber-PCB Dark) ====== */
 .dark {
-  --md-primary: #39ff14;
-  --md-on-primary: #000000;
-  --md-primary-container: #0a2e00;
-  --md-on-primary-container: #b8ffb0;
-  --md-secondary: #bbc7db;
-  --md-on-secondary: #263140;
-  --md-secondary-container: #3c4858;
-  --md-on-secondary-container: #d7e3f7;
-  --md-tertiary: #d8bde4;
-  --md-on-tertiary: #3c2948;
-  --md-tertiary-container: #523f5f;
-  --md-on-tertiary-container: #f2daff;
-  --md-surface: #131313;
-  --md-on-surface: #e1e2e9;
-  --md-on-surface-variant: #c3c7cf;
-  --md-surface-variant: #2a2a2a;
-  --md-surface-lowest: #0a0a0a;
-  --md-surface-low: #1a1a1a;
-  --md-surface-container: #1f1f1f;
-  --md-surface-high: #2a2a2a;
-  --md-surface-highest: #333333;
-  --md-outline: #8d9199;
-  --md-outline-variant: #43474e;
-  --md-inverse-surface: #e1e2e9;
-  --md-inverse-on-surface: #2e3135;
-  --md-error: #ffb4ab;
+  /* پالت اصلی برند - دارک با سبز نئونی + glow */
+  --md-primary: #6CFF6C;
+  --md-on-primary: #0B120E;
+  --md-primary-container: #1A3D22;
+  --md-on-primary-container: #B8FFB8;
+  
+  --md-secondary: #8FA39B;
+  --md-on-secondary: #0B120E;
+  --md-secondary-container: #2A3530;
+  --md-on-secondary-container: #D8E5DE;
+  
+  --md-tertiary: #7A968A;
+  --md-on-tertiary: #0B120E;
+  --md-tertiary-container: #24302B;
+  --md-on-tertiary-container: #DCE8E2;
+  
+  /* سطوح */
+  --md-surface: #0B120E;
+  --md-on-surface: #EAF5EC;
+  --md-on-surface-variant: #A8B5AD;
+  --md-surface-variant: #1C2420;
+  --md-surface-lowest: #080D0A;
+  --md-surface-low: #131B16;
+  --md-surface-container: #131B16;
+  --md-surface-container-high: #1C2420;
+  --md-surface-container-highest: #242D28;
+  
+  --md-outline: #6E7D75;
+  --md-outline-variant: #3A4540;
+  --md-inverse-surface: #EAF5EC;
+  --md-inverse-on-surface: #1C2420;
+  
+  --md-error: #FFB4AB;
   --md-on-error: #690005;
 
-  /* رنگ دسته‌بندی‌ها (تاریک - Cyberpunk Neon) */
-  --cat-blue: #00ccff;
-  --cat-violet: #bb86fc;
-  --cat-magenta: #ff00ff;
-  --cat-red: #ff3333;
-  --cat-green: #39ff14;
-  --cat-teal: #00ffff;
-  --cat-amber: #ffcc00;
-  --cat-indigo: #7c4dff;
-  --cat-cyan: #00e5ff;
-  --cat-fuchsia: #ff4081;
-  --cat-slate: #c3c7cf;
+  /* رنگ دسته‌بندی‌ها (دارک - نسخه‌ی نئونی درخشان) */
+  --cat-blue: #00DDFF;
+  --cat-violet: #BB86FC;
+  --cat-magenta: #FF1493;
+  --cat-red: #FF4444;
+  --cat-green: #6CFF6C;
+  --cat-teal: #00FFFF;
+  --cat-amber: #FFD700;
+  --cat-indigo: #7C4DFF;
+  --cat-cyan: #00E5FF;
+  --cat-fuchsia: #FF4081;
+  --cat-slate: #A8B5AD;
 }
 
-/* ====== پایه ====== */
-/* ====== پایه ====== */
 /* ====== پایه ====== */
 @layer base {
 html {
@@ -170,6 +179,90 @@ html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  
+  /* تایپوگرافی با استایل futurist/tech */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  
+  /* فونت monospace برای برچسب‌های فنی */
+  .font-mono {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* ====== PCB Background Pattern ====== */
+/* پترن مدار الکترونیکی در پس‌زمینه */
+.pcb-bg {
+  position: relative;
+}
+
+.pcb-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.4;
+  background-image: 
+    /* خطوط افقی باریک مثل مسیر مدار */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      color-mix(in srgb, var(--md-outline-variant) 40%, transparent) 2px,
+      color-mix(in srgb, var(--md-outline-variant) 40%, transparent) 3px
+    ),
+    /* خطوط عمودی باریک */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      color-mix(in srgb, var(--md-outline-variant) 40%, transparent) 2px,
+      color-mix(in srgb, var(--md-outline-variant) 40%, transparent) 3px
+    ),
+    /* گره‌های دایره‌ای کوچک در تقاطع‌ها */
+    radial-gradient(
+      circle at 0 0,
+      color-mix(in srgb, var(--md-outline-variant) 60%, transparent) 1px,
+      transparent 2px
+    );
+  background-size: 
+    100% 24px,
+    24px 100%,
+    24px 24px;
+}
+
+/* نسخه‌ی دارک‌مود با خطوط درخشان */
+.dark .pcb-bg::before {
+  opacity: 0.25;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      color-mix(in srgb, var(--md-primary) 30%, transparent) 2px,
+      color-mix(in srgb, var(--md-primary) 30%, transparent) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      color-mix(in srgb, var(--md-primary) 30%, transparent) 2px,
+      color-mix(in srgb, var(--md-primary) 30%, transparent) 3px
+    ),
+    radial-gradient(
+      circle at 0 0,
+      color-mix(in srgb, var(--md-primary) 50%, transparent) 1.5px,
+      transparent 3px
+    );
+  background-size: 
+    100% 24px,
+    24px 100%,
+    24px 24px;
 }
 
 /* ====== Material Symbols (self-hosted) ====== */
@@ -195,6 +288,53 @@ html {
   background-color: color-mix(in srgb, var(--c) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
 }
+
+/* ====== Cyber-PCB Button & Card Styles ====== */
+/* دکمه‌ها و کارت‌ها با حاشیه‌های باریک و گره‌های دایره‌ای */
+.cyber-btn,
+.cyber-card {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+  transition: all 0.3s var(--ease-standard);
+}
+
+/* افکت glow در دارک‌مود */
+.dark .cyber-btn:hover,
+.dark .cyber-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  box-shadow: 
+    0 0 12px color-mix(in srgb, var(--color-primary) 25%, transparent),
+    0 0 24px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* سایه‌های ملایم در لایت‌مود */
+:not(.dark) .cyber-btn:hover,
+:not(.dark) .cyber-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  box-shadow: 
+    0 2px 8px color-mix(in srgb, var(--color-primary) 10%, transparent),
+    0 4px 16px color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+/* گره‌های دایره‌ای در گوشه‌ها */
+.cyber-node {
+  position: relative;
+}
+
+.cyber-node::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.6;
+}
+
+.cyber-node.node-tl::after { top: -3px; left: -3px; }
+.cyber-node.node-tr::after { top: -3px; right: -3px; }
+.cyber-node.node-bl::after { bottom: -3px; left: -3px; }
+.cyber-node.node-br::after { bottom: -3px; right: -3px; }
 
 /* ====== انیمیشن‌ها ====== */
 @keyframes float-soft {
@@ -291,4 +431,103 @@ html {
 html,
 body {
   overflow-x: hidden;
+}
+
+/* ====== PCB Circuit Line Decoration ====== */
+/* خطوط مدار به‌صورت تزئینی برای کارت‌ها و المان‌ها */
+.circuit-line {
+  position: relative;
+}
+
+.circuit-line::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.circuit-line.tl::before { top: 8px; left: -20px; }
+.circuit-line.tr::before { top: 8px; right: -20px; }
+.circuit-line.bl::before { bottom: 8px; left: -20px; }
+.circuit-line.br::before { bottom: 8px; right: -20px; }
+
+/* نقطه‌های اتصال مدار */
+.circuit-dot {
+  position: relative;
+}
+
+.circuit-dot::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.circuit-dot.tl::after { top: 6px; left: 6px; }
+.circuit-dot.tr::after { top: 6px; right: 6px; }
+.circuit-dot.bl::after { bottom: 6px; left: 6px; }
+.circuit-dot.br::after { bottom: 6px; right: 6px; }
+
+/* ====== Input Fields with Cyber-PCB Style ====== */
+.cyber-input {
+  border: 1px solid color-mix(in srgb, var(--color-outline) 60%, transparent);
+  background: var(--color-surface-container-high);
+  transition: all 0.2s var(--ease-standard);
+}
+
+.cyber-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* glow در دارک‌مود */
+.dark .cyber-input:focus {
+  box-shadow: 
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    0 0 12px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* سایه ملایم در لایت‌مود */
+:not(.dark) .cyber-input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* ====== Link Styles with PCB Nodes ====== */
+.cyber-link {
+  position: relative;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: all 0.2s var(--ease-standard);
+}
+
+.cyber-link::before {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-primary);
+  transition: width 0.3s var(--ease-decelerate);
+}
+
+.cyber-link:hover::before {
+  width: 100%;
+}
+
+/* گره‌های دایره‌ای در ابتدا و انتهای لینک */
+.cyber-link::after {
+  content: "●";
+  position: absolute;
+  font-size: 4px;
+  color: var(--color-primary);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-standard);
+}
+
+.cyber-link:hover::after {
+  opacity: 0.6;
 }
