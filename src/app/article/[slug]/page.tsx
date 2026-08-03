@@ -14,6 +14,7 @@ import { ShareButton } from '@/components/ShareButton';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getArticleBySlug, getRelatedArticles, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
+import { ViewTracker } from '@/components/ViewTracker';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -114,6 +115,9 @@ export default async function ArticlePage({ params }: Props) {
 
   return (
     <main className="relative">
+      {/* ViewTracker - فقط وقتی صفحه واقعاً باز شد ویو رو زیاد می‌کنه */}
+      <ViewTracker articleId={article.id} />
+
       {/* لایه‌ی ambient tonal بر اساس رنگ دسته */}
       <div
         aria-hidden
