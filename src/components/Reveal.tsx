@@ -1,15 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 
 interface RevealProps {
   children: ReactNode;
   className?: string;
   /** تأخیر به میلی‌ثانیه برای stagger بین کارت‌ها */
   delay?: number;
+  /** آستانه‌ی مشاهده (پیش‌فرض 0.12) */
+  threshold?: number;
 }
 
-export function Reveal({ children, className, delay = 0 }: RevealProps) {
+const revealStyle: CSSProperties = {
+  willChange: 'opacity, transform',
+  contain: 'layout style paint',
+};
+
+export function Reveal({ children, className, delay = 0, threshold = 0.12 }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -24,12 +31,12 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -48px 0px' },
+      { threshold, rootMargin: '0px 0px -48px 0px' },
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [threshold]);
 
   return (
     <div
@@ -37,7 +44,7 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
       className={`${className ?? ''} transition-all duration-700 ease-decelerate ${
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
       }`}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={{ ...revealStyle, transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
