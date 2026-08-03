@@ -16,29 +16,32 @@ export default async function BookmarksPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن bookmarkهای کاربر (بدون sort در query برای جلوگیری از خطای PocketBase)
+  // ⚡ Bolt Optimization: Load bookmarks and related articles efficiently
+  // Without using DB sort/expand which caused previous PocketBase errors
   const bmItems = await pb.collection('bookmarks').getFullList({
     filter: `user = "${userId}"`,
   });
 
-  // مرتب‌سازی در JavaScript (جدیدترین اول)
+  // 1. Sort bookmarks in JS
   bmItems.sort((a: any, b: any) => 
     new Date(b.created).getTime() - new Date(a.created).getTime()
   );
 
-  // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه
-  const articles: Article[] = [];
-  for (const bm of bmItems) {
-    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const articleId = (bm as any).article;
-    if (!articleId) continue;
+  // 2. Fetch all unique articles in ONE batch DB query
+  const articleIds = [...new Set(bmItems.map((bm: any) => bm.article).filter(Boolean))];
+  let articles: Article[] = [];
+  if (articleIds.length > 0) {
+    const articleFilter = articleIds.map(id => `id = "${id}"`).join(' || ');
+    const aRes = await pb.collection('articles').getFullList({
+      filter: articleFilter,
+    });
     
-    try {
-      const a = await pb.collection('articles').getOne(articleId);
-      articles.push(a as unknown as Article);
-    } catch {
-      // مقاله حذف شده یا در دسترس نیست — رد کن
-    }
+    const articleMap = new Map();
+    aRes.forEach((a: any) => articleMap.set(a.id, a as unknown as Article));
+
+    articles = bmItems
+      .map((bm: any) => articleMap.get(bm.article))
+      .filter((a): a is Article => Boolean(a));
   }
 
   return (

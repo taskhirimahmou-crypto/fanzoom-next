@@ -20,29 +20,35 @@ export default async function HistoryPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand در query برای جلوگیری از خطا)
+  // ⚡ Bolt Optimization: Load history records and related articles efficiently
+  // Without using DB sort/expand which caused previous PocketBase errors
   let entries: HistoryEntry[] = [];
   try {
     const res = await pb.collection('history').getFullList({
       filter: `user = "${userId}"`,
     });
 
-    // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
-    const loaded = await Promise.all(
-      res.map(async (h: any) => {
-        const articleId = h.article;
-        const lastRead = h.last_read;
-        if (!articleId) return null;
-        try {
-          const a = await pb.collection('articles').getOne(articleId);
-          return { article: a as unknown as Article, lastRead } as HistoryEntry;
-        } catch {
-          return null; // مقاله حذف شده
-        }
-      }),
-    );
+    // 1. Fetch all unique articles in ONE batch DB query instead of Promise.all loops
+    const articleIds = [...new Set(res.map((h: any) => h.article).filter(Boolean))];
+    const articleMap = new Map();
+    if (articleIds.length > 0) {
+      const articleFilter = articleIds.map(id => `id = "${id}"`).join(' || ');
+      const aRes = await pb.collection('articles').getFullList({
+        filter: articleFilter,
+      });
+      aRes.forEach((a: any) => articleMap.set(a.id, a as unknown as Article));
+    }
 
-    entries = loaded
+    // 2. Map history and sort in JS
+    entries = res
+      .map((h: any) => {
+        const article = articleMap.get(h.article);
+        if (!article) return null;
+        return {
+          article: article,
+          lastRead: h.last_read
+        } as HistoryEntry;
+      })
       .filter((e): e is HistoryEntry => Boolean(e))
       .sort((a, b) => (a.lastRead < b.lastRead ? 1 : -1)); // جدیدترین مطالعه اول
   } catch {
