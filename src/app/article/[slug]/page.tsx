@@ -172,7 +172,7 @@ export default async function ArticlePage({ params }: Props) {
                 {(article.author || 'ف')[0]}
               </span>
               <span className="font-medium text-on-surface">
-                {article.author || 'تحریریه فنزوم'}
+                {article.author || 'تحریریه فن زوم'}
               </span>
             </span>
             <span className="flex items-center gap-1.5">

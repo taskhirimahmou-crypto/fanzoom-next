@@ -55,7 +55,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
       >
         <div className="border-b border-outline-variant/60 px-3 py-2.5">
           <p className="truncate text-sm font-bold text-on-surface">
-            {user.displayName || 'کاربر فنزوم'}
+            {user.displayName || 'کاربر فن زوم'}
           </p>
           <p className="truncate text-xs text-on-surface-variant">{user.email}</p>
         </div>

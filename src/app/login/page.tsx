@@ -89,10 +89,12 @@ export default function LoginPage() {
       <div className="flex items-center justify-center px-4 py-12 md:px-8">
         <div className="w-full max-w-md">
           <Link href="/" className="mb-10 flex items-center gap-2.5">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-on-primary shadow-1">
-              <Icon name="bolt" fill className="text-2xl" />
-            </span>
-            <span className="text-xl font-black text-on-surface">فنزوم</span>
+            <img
+              src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+              alt="فن زوم"
+              className="h-10 w-10 rounded-xl object-cover shadow-1"
+            />
+            <span className="text-xl font-black text-on-surface">فن زوم</span>
           </Link>
 
           <h1 className="text-3xl font-black tracking-tight text-on-surface md:text-4xl">
@@ -100,8 +102,8 @@ export default function LoginPage() {
           </h1>
           <p className="mt-3 leading-7 text-on-surface-variant">
             {mode === 'login'
-              ? 'برای ادامه وارد حساب فنزوم خود شوید.'
-              : 'در چند ثانیه به فنزوم بپیوندید.'}
+              ? 'برای ادامه وارد حساب فن زوم خود شوید.'
+              : 'در چند ثانیه به فن زوم بپیوندید.'}
           </p>
 
           {/* تب ورود / ثبت‌نام */}
