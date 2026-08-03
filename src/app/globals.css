@@ -61,6 +61,12 @@
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  /* Neon custom values */
+  --shadow-neon: 0 0 20px rgba(57,255,20,0.2);
+  --shadow-neon-hover: 0 0 15px rgba(57,255,20,0.3);
+  --color-neon-glow: rgba(57, 255, 20, 0.15);
+  --color-primary-fixed: #79ff5b;
 }
 
 /* ====== مقادیر رنگ: روشن ====== */
@@ -109,10 +115,10 @@
 
 /* ====== مقادیر رنگ: تاریک ====== */
 .dark {
-  --md-primary: #9ecaff;
-  --md-on-primary: #003258;
-  --md-primary-container: #00497d;
-  --md-on-primary-container: #d1e4ff;
+  --md-primary: #efffe3;
+  --md-on-primary: #053900;
+  --md-primary-container: #107100;
+  --md-on-primary-container: #79ff5b;
   --md-secondary: #bbc7db;
   --md-on-secondary: #263140;
   --md-secondary-container: #3c4858;
@@ -121,17 +127,17 @@
   --md-on-tertiary: #3c2948;
   --md-tertiary-container: #523f5f;
   --md-on-tertiary-container: #f2daff;
-  --md-surface: #111418;
-  --md-on-surface: #e1e2e9;
-  --md-on-surface-variant: #c3c7cf;
-  --md-surface-variant: #43474e;
-  --md-surface-lowest: #0b0e13;
-  --md-surface-low: #191c20;
-  --md-surface-container: #1d2024;
-  --md-surface-high: #282a2f;
-  --md-surface-highest: #33353a;
-  --md-outline: #8d9199;
-  --md-outline-variant: #43474e;
+  --md-surface: #0c1609;
+  --md-on-surface: #ffffff;
+  --md-on-surface-variant: #baccb0;
+  --md-surface-variant: #2d3828;
+  --md-surface-lowest: #071105;
+  --md-surface-low: #0c1609;
+  --md-surface-container: #182214;
+  --md-surface-high: #222d1e;
+  --md-surface-highest: #2d3828;
+  --md-outline: #3c4b35;
+  --md-outline-variant: #3c4b35;
   --md-inverse-surface: #e1e2e9;
   --md-inverse-on-surface: #2e3135;
   --md-error: #ffb4ab;
@@ -290,4 +296,19 @@ html {
 html,
 body {
   overflow-x: hidden;
+}
+
+/* ====== Custom Neon Animations ====== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
 }
