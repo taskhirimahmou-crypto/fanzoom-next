@@ -29,9 +29,9 @@ export default async function HistoryPage() {
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
     const loaded = await Promise.all(
-      res.map(async (h: any) => {
-        const articleId = h.article;
-        const lastRead = h.last_read;
+      res.map(async (h: unknown) => {
+        const articleId = (h as { article?: string }).article;
+        const lastRead = (h as { last_read: string }).last_read;
         if (!articleId) return null;
         try {
           const a = await pb.collection('articles').getOne(articleId);

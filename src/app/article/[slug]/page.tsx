@@ -74,12 +74,12 @@ export default async function ArticlePage({ params }: Props) {
 
     // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
     const userIds = [
-      ...new Set(cRes.items.map((c: any) => c.user).filter(Boolean)),
+      ...new Set(cRes.items.map((c: unknown) => (c as { user?: string }).user).filter(Boolean)),
     ];
     
     const userMap = new Map<string, { name: string; initial: string }>();
     await Promise.all(
-      userIds.map(async (uid) => {
+      (userIds as string[]).map(async (uid) => {
         try {
           const u = (await pb.collection('users').getOne(uid)) as {
             displayName?: string;
@@ -94,12 +94,12 @@ export default async function ArticlePage({ params }: Props) {
     );
 
     comments = cRes.items
-      .map((c: any) => {
-        const u = userMap.get(c.user) ?? { name: 'کاربر', initial: 'ک' };
+      .map((c: unknown) => {
+        const u = userMap.get((c as { user: string }).user) ?? { name: 'کاربر', initial: 'ک' };
         return {
-          id: c.id,
-          body: c.content,
-          created: c.created || c.autodate || c.updated || '',
+          id: (c as { id: string }).id,
+          body: (c as { content?: string }).content || '',
+          created: (c as { created?: string }).created || (c as { autodate?: string }).autodate || (c as { updated?: string }).updated || '',
           authorName: u.name,
           authorInitial: u.initial,
         };

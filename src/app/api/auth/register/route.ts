@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPocketBase } from '@/lib/pocketbase';
+import { ClientResponseError } from 'pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
 
 export async function POST(req: NextRequest) {
@@ -32,8 +33,10 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     });
     return res;
-  } catch (e: any) { // ← تغییر کلیدی: اضافه کردن ": any" اینجا
-    const errData = e?.response?.data;
+  } catch (e: unknown) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errData = e instanceof ClientResponseError ? e.response?.data : (e as any)?.response?.data; // ← تغییر کلیدی: اضافه کردن ": any" اینجا
+
     const fields = errData?.data ?? errData;
     const emailStr = JSON.stringify(fields?.email ?? '').toLowerCase();
 

@@ -37,6 +37,8 @@ export type BaseSystemFields<T = unknown> = {
 	id: RecordIdString
 	collectionId: string
 	collectionName: Collections
+	created: IsoDateString
+	updated: IsoDateString
 } & ExpandType<T>
 
 export type AuthSystemFields<T = unknown> = {
