@@ -3,7 +3,7 @@ import { Icon, type IconName } from '@/components/Icon';
 import { mainNavCategories } from '@/lib/categories';
 
 const quickLinks = [
-  { label: 'درباره فنزوم', href: '/about' },
+  { label: 'درباره فن زوم', href: '/about' },
   { label: 'تماس با ما', href: '/contact' },
   { label: 'حریم خصوصی', href: '/privacy' },
   { label: 'قوانین استفاده', href: '/terms' },
@@ -27,10 +27,12 @@ export function Footer() {
           {/* برند */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-on-primary">
-                <Icon name="bolt" fill className="text-xl" />
-              </span>
-              <span className="text-lg font-black text-on-surface">فنزوم</span>
+              <img
+                src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+                alt="فن زوم"
+                className="h-9 w-9 rounded-xl object-cover shadow-1"
+              />
+              <span className="text-lg font-black text-on-surface">فن زوم</span>
             </Link>
             <p className="mt-4 text-sm leading-7 text-on-surface-variant">
               رسانه‌ی تخصصی فناوری؛ اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.
@@ -89,7 +91,7 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <h3 className="text-sm font-bold text-on-surface">همراه ما باشید</h3>
             <p className="mt-4 text-sm leading-7 text-on-surface-variant">
-              جدیدترین اخبار فناوری را در کانال تلگرام فنزوم دنبال کنید.
+              جدیدترین اخبار فناوری را در کانال تلگرام فن زوم دنبال کنید.
             </p>
             <a
               href="https://t.me/fanzoom_ir"
@@ -106,7 +108,7 @@ export function Footer() {
         {/* نوار پایینی */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-outline-variant/60 pt-6 sm:flex-row">
           <p className="text-xs text-on-surface-variant">
-            © {year} فنزوم — تمامی حقوق محفوظ است.
+            © {year} فن زوم — تمامی حقوق محفوظ است.
           </p>
           <p className="flex items-center gap-1.5 text-xs text-on-surface-variant">
             ساخته‌شده با

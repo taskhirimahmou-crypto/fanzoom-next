@@ -54,7 +54,7 @@ export default async function ProfilePage() {
           </span>
           <div>
             <h1 className="text-3xl font-black tracking-tight text-on-surface md:text-4xl">
-              {record.displayName || 'کاربر فنزوم'}
+              {record.displayName || 'کاربر فن زوم'}
             </h1>
             <p className="mt-2 text-on-surface-variant">{record.email}</p>
           </div>

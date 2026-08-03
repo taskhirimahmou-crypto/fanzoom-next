@@ -85,10 +85,12 @@ export function Header({ user }: { user: CurrentUser | null }) {
             href="/"
             className="flex items-center gap-2.5 rounded-full p-1 transition-opacity hover:opacity-80"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-on-primary shadow-1">
-              <Icon name="bolt" fill className="text-xl" />
-            </span>
-            <span className="text-lg font-black tracking-tight text-on-surface">فنزوم</span>
+            <img
+              src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+              alt="فن زوم"
+              className="h-9 w-9 rounded-xl object-cover shadow-1"
+            />
+            <span className="text-lg font-black tracking-tight text-on-surface">فن زوم</span>
           </Link>
 
           {/* ناوبری دسکتاپ */}
@@ -218,10 +220,12 @@ export function Header({ user }: { user: CurrentUser | null }) {
         >
           <div className="flex items-center justify-between border-b border-outline-variant/60 px-4 py-4">
             <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-on-primary">
-                <Icon name="bolt" fill className="text-xl" />
-              </span>
-              <span className="text-lg font-black text-on-surface">فنزوم</span>
+              <img
+                src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+                alt="فن زوم"
+                className="h-9 w-9 rounded-xl object-cover shadow-1"
+              />
+              <span className="text-lg font-black text-on-surface">فن زوم</span>
             </div>
             <button
               type="button"
@@ -261,7 +265,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-on-surface">
-                      {user.displayName || 'کاربر فنزوم'}
+                      {user.displayName || 'کاربر فن زوم'}
                     </p>
                     <p className="truncate text-xs text-on-surface-variant">{user.email}</p>
                   </div>
