@@ -23,7 +23,10 @@ export function ArticleVisual({ image, title, cat, className, iconClassName }: P
           src={image}
           alt={title}
           loading="lazy"
+          decoding="async"
+          fetchPriority="low"
           className="h-full w-full object-cover transition-transform duration-500 ease-decelerate group-hover:scale-105"
+          style={{ contentVisibility: 'auto' }}
         />
       </div>
     );

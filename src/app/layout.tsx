@@ -6,11 +6,13 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import './globals.css';
 import { getServerPocketBase } from '@/lib/auth-cookies';
+import { cache } from 'react';
 
 const vazir = Vazirmatn({
   subsets: ['arabic', 'latin'],
   variable: '--font-vazir',
   display: 'swap',
+  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -31,16 +33,20 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image' },
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+const getCurrentUser = cache(async () => {
   const pb = await getServerPocketBase();
   const record = pb.authStore.record as
     | { id: string; email: string; displayName?: string }
     | null;
-  const user = record
+  return record
     ? { id: record.id, email: record.email, displayName: record.displayName }
     : null;
+});
+
+export default async function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  const user = await getCurrentUser();
 
   return (
     <html
