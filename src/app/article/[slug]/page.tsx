@@ -71,38 +71,20 @@ export default async function ArticlePage({ params }: Props) {
   try {
     const cRes = await pb.collection('comments').getList(1, 100, {
       filter: pb.filter('article = {:aid} && status = "approved"', { aid: article.id }),
+      expand: 'user', // ⚡ Bolt: Fetches user relations in a single database request to avoid N+1 queries
     });
-
-    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const userIds = [
-      ...new Set(cRes.items.map((c: unknown) => (c as { user?: string }).user).filter(Boolean)),
-    ];
-    
-    const userMap = new Map<string, { name: string; initial: string }>();
-    await Promise.all(
-      (userIds as string[]).map(async (uid) => {
-        try {
-          const u = (await pb.collection('users').getOne(uid)) as {
-            displayName?: string;
-            email?: string;
-          };
-          const name = u.displayName || u.email || 'کاربر';
-          userMap.set(uid, { name, initial: name[0] || 'ک' });
-        } catch {
-          userMap.set(uid, { name: 'کاربر', initial: 'ک' });
-        }
-      }),
-    );
 
     comments = cRes.items
       .map((c: unknown) => {
-        const u = userMap.get((c as { user: string }).user) ?? { name: 'کاربر', initial: 'ک' };
+        const expandedUser = (c as { expand?: { user?: { displayName?: string; email?: string } } }).expand?.user;
+        const name = expandedUser?.displayName || expandedUser?.email || 'کاربر';
+
         return {
           id: (c as { id: string }).id,
           body: (c as { content?: string }).content || '',
           created: (c as { created?: string }).created || (c as { autodate?: string }).autodate || (c as { updated?: string }).updated || '',
-          authorName: u.name,
-          authorInitial: u.initial,
+          authorName: name,
+          authorInitial: name[0] || 'ک',
         };
       })
       .sort((a, b) => (a.created < b.created ? 1 : -1)); // جدیدترین اول
