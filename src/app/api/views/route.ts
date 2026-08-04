@@ -12,8 +12,13 @@ export async function POST(req: NextRequest) {
     const pb = getPocketBase();
 
     // احراز هویت به عنوان ادمین برای دور زدن API rules
-    const adminEmail = process.env.POCKETBASE_ADMIN_EMAIL || 'taskhirimahmou@gmail.com';
-    const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD || '@Mahmoud83';
+    const adminEmail = process.env.POCKETBASE_ADMIN_EMAIL;
+    const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      console.error('🔴 Missing admin credentials for views update');
+      return NextResponse.json({ error: 'failed to update views' }, { status: 500 });
+    }
 
     await pb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
 
