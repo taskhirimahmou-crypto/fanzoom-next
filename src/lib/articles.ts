@@ -1,15 +1,24 @@
 // src/lib/articles.ts
 
-export function formatViews(n: number): string {
-  if (n >= 1000) {
-    const k = (n / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
+/**
+ * فرمت تعداد بازدیدها — نسخه‌ی ضدضربه که null/undefined را تحمل می‌کند
+ */
+export function formatViews(n?: number | null): string {
+  const v = typeof n === 'number' && isFinite(n) ? n : 0;
+  if (v >= 1000) {
+    const k = (v / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
     return `${k} هزار`;
   }
-  return n.toLocaleString('fa-IR');
+  return v.toLocaleString('fa-IR');
 }
 
-export function relativeTime(dateStr: string): string {
+/**
+ * نمایش زمان نسبی (مثلاً "۵ دقیقه پیش") — نسخه‌ی ضدضربه که null/undefined و تاریخ‌های نامعتبر را تحمل می‌کند
+ */
+export function relativeTime(dateStr?: string | null): string {
+  if (!dateStr) return 'همین حالا';
   const diffMs = Date.now() - new Date(dateStr).getTime();
+  if (isNaN(diffMs)) return 'همین حالا';
   const min = Math.floor(diffMs / 60000);
   if (min < 1) return 'همین حالا';
   if (min < 60) return `${min.toLocaleString('fa-IR')} دقیقه پیش`;
