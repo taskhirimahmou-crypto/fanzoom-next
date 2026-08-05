@@ -27,10 +27,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     : 'https://fanzoom.ir/search';
   
   return {
-    title: query ? `جستجو برای «${query}» | فنزوم` : 'جستجو | فنزوم',
+    title: query ? `جستجو برای «${query}» | فن زوم` : 'جستجو | فن زوم',
     description: query
-      ? `نتایج جستجو برای «${query}» در پایگاه خبری فنزوم`
-      : 'جستجو در مقالات پایگاه خبری فنزوم',
+      ? `نتایج جستجو برای «${query}» در پایگاه خبری فن زوم`
+      : 'جستجو در مقالات پایگاه خبری فن زوم',
     alternates: { canonical: searchUrl },
     robots: { index: false, follow: true }, // صفحات جستجو ایندکس نشوند (duplicate content)
   };
