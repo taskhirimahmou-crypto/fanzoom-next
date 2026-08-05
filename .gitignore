@@ -1,40 +1,22 @@
 ```
-# Dependencies
-node_modules/
-.jest/
-.next/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*
-
-# Build outputs
+# Build artifacts
 dist/
 build/
-out/
-.output/
+*.ico
 
-# IDE files
+# Dependencies
+node_modules/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-.nyc_output/
 ```
