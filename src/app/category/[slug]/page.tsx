@@ -28,21 +28,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const categoryUrl = `https://fanzoom.ir/category/${cat.slug}`;
   
   return {
-    title: `${cat.name} | فنزوم`,
+    title: `${cat.name} | فن زوم`,
     description: cat.description,
     alternates: { canonical: categoryUrl },
     openGraph: {
       type: 'website',
       locale: 'fa_IR',
       url: categoryUrl,
-      siteName: 'فنزوم',
-      title: `${cat.name} | فنزوم`,
+      siteName: 'فن زوم',
+      title: `${cat.name} | فن زوم`,
       description: cat.description,
       images: [{ url: '/og-default.jpg', width: 1200, height: 630, alt: cat.name }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${cat.name} | فنزوم`,
+      title: `${cat.name} | فن زوم`,
       description: cat.description,
       images: ['/og-default.jpg'],
     },
