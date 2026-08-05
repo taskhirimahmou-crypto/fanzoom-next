@@ -16,21 +16,83 @@ const vazir = Vazirmatn({
 });
 
 export const metadata: Metadata = {
+  // آدرس پایه سایت — برای تمام لینک‌های نسبی (Open Graph، canonical و...)
   metadataBase: new URL('https://fanzoom.ir'),
+  
+  // عنوان پیش‌فرض + قالب عنوان صفحات داخلی
   title: {
-    default: 'فن زوم | رسانه‌ی تخصصی فناوری',
-    template: '%s | فن زوم',
+    default: 'فنزوم | پایگاه خبری فناوری',
+    template: '%s | فنزوم',
   },
+  
   description:
-    'فن زوم، رسانه‌ی تخصصی فناوری؛ اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.',
+    'فنزوم، پایگاه خبری فناوری ایران — آخرین اخبار موبایل، سخت‌افزار، نرم‌افزار، خودروهای برقی و هوش مصنوعی',
+  
+  // کلمات کلیدی (تأثیر کم ولی بدون ضرر)
+  keywords: [
+    'اخبار فناوری',
+    'اخبار تکنولوژی',
+    'موبایل',
+    'سخت‌افزار',
+    'نرم‌افزار',
+    'هوش مصنوعی',
+    'خودرو برقی',
+    'فنزوم',
+  ],
+  
+authors: [{ name: 'تحریریه فنزوم' }],
+  
+  // canonical پیش‌فرض
+  alternates: {
+    canonical: '/',
+  },
+  
+  // Open Graph — برای تلگرام، لینکدین، فیسبوک
   openGraph: {
     type: 'website',
     locale: 'fa_IR',
-    siteName: 'فن زوم',
-    title: 'فن زوم | رسانه‌ی تخصصی فناوری',
-    description: 'اخبار، بررسی و تحلیل دنیای تکنولوژی به زبان فارسی.',
+    url: 'https://fanzoom.ir',
+    siteName: 'فنزوم',
+    title: 'فنزوم | پایگاه خبری فناوری',
+    description:
+      'آخرین اخبار فناوری، بررسی موبایل، سخت‌افزار، نرم‌افزار و هوش مصنوعی',
+    images: [
+      {
+        url: '/og-default.jpg', // یک عکس 1200x630 در پوشه public بگذار
+        width: 1200,
+        height: 630,
+        alt: 'فنزوم | پایگاه خبری فناوری',
+      },
+    ],
   },
-  twitter: { card: 'summary_large_image' },
+  
+  // Twitter Card — برای توییتر/ایکس
+  twitter: {
+    card: 'summary_large_image',
+    title: 'فنزوم | پایگاه خبری فناوری',
+    description:
+      'آخرین اخبار فناوری، بررسی موبایل، سخت‌افزار، نرم‌افزار و هوش مصنوعی',
+    images: ['/og-default.jpg'],
+  },
+  
+  // آیکون‌ها
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  
+  // ربات‌ها
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 };
 
 const getCurrentUser = cache(async () => {
