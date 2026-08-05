@@ -39,13 +39,14 @@ function FeaturedCard({ article }: { article: Article }) {
       href={`/article/${article.slug}`}
       className="group block h-full overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
     >
-                  <div className="relative">
+      <div className="relative">
         <ArticleVisual
           image={getImageUrl(article)}
           title={article.title}
           cat={cat}
           className="h-56 md:h-72"
           iconClassName="text-8xl"
+          priority
         />
         <span
           className="cat-chip absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold"

@@ -267,6 +267,7 @@ export default async function ArticlePage({ params }: Props) {
             cat={cat}
             className="mt-8 h-64 rounded-2xl border border-outline-variant/60 md:h-80"
             iconClassName="text-9xl animate-float-soft"
+            priority
           />
         </Reveal>
 
