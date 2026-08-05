@@ -75,12 +75,6 @@ authors: [{ name: 'تحریریه فنزوم' }],
     images: ['/og-default.jpg'],
   },
   
-  // آیکون‌ها
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
-  
   // ربات‌ها
   robots: {
     index: true,
