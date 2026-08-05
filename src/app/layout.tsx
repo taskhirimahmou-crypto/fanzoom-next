@@ -16,7 +16,7 @@ const vazir = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://my-backend-fanzoom.liara.run'),
+  metadataBase: new URL('https://fanzoom.ir'),
   title: {
     default: 'فن زوم | رسانه‌ی تخصصی فناوری',
     template: '%s | فن زوم',
