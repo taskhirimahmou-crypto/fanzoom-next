@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: article.excerpt,
       ...(imageUrl ? { images: [{ url: imageUrl, width: 1200, height: 630, alt: article.title }] } : {}),
       publishedTime: article.publishedAt,
-      modifiedTime: article.updatedAt ?? article.publishedAt,
+      modifiedTime: article.updated ?? article.publishedAt,
       authors: [article.author || 'تحریریه فنزوم'],
       section: cat.name,
       tags: [cat.name, 'فناوری'],
@@ -151,7 +151,7 @@ export default async function ArticlePage({ params }: Props) {
           description: article.excerpt,
           ...(getImageUrl(article) ? { image: getImageUrl(article) } : {}),
           datePublished: article.publishedAt,
-          dateModified: article.updatedAt ?? article.publishedAt,
+          dateModified: article.updated ?? article.publishedAt,
           author: {
             '@type': 'Person',
             name: article.author || 'تحریریه فنزوم',
