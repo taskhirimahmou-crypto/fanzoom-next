@@ -201,7 +201,7 @@ export default async function ArticlePage({ params }: Props) {
           ])}
         />
         <Reveal>
-          <div className="mt-5 flex items-center gap-4">
+          <div className="mt-5 flex items-center justify-end gap-4">
             <Link
               href={`/category/${cat.slug}`}
               className="cat-chip rounded-full px-4 py-1.5 text-sm font-bold transition-transform duration-300 ease-standard hover:scale-105 active:scale-95"
