@@ -15,6 +15,7 @@ import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getArticleBySlug, getRelatedArticles, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { ViewTracker } from '@/components/ViewTracker';
+import { JsonLd } from '@/components/JsonLd';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -28,14 +29,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
   if (!article) return { title: 'مقاله پیدا نشد' };
+
+  const articleUrl = `https://fanzoom.ir/article/${article.slug}`;
+  const imageUrl = getImageUrl(article);
+  const cat = findCategoryBySlug(article.category) ?? allCategories[0];
+
   return {
     title: article.title,
     description: article.excerpt,
+    
+    // canonical مخصوص این مقاله
+    alternates: { canonical: articleUrl },
+    
+    // Open Graph داینامیک (برای تلگرام، لینکدین، فیسبوک)
     openGraph: {
+      type: 'article',
+      locale: 'fa_IR',
+      url: articleUrl,
+      siteName: 'فنزوم',
       title: article.title,
       description: article.excerpt,
-      type: 'article',
-      ...(getImageUrl(article) ? { images: [{ url: getImageUrl(article) }] } : {}),
+      ...(imageUrl ? { images: [{ url: imageUrl, width: 1200, height: 630, alt: article.title }] } : {}),
+      publishedTime: article.publishedAt,
+      modifiedTime: article.updatedAt ?? article.publishedAt,
+      authors: [article.author || 'تحریریه فنزوم'],
+      section: cat.name,
+      tags: [cat.name, 'فناوری'],
+    },
+    
+    // Twitter Card
+    twitter: {
+      card: imageUrl ? 'summary_large_image' : 'summary',
+      title: article.title,
+      description: article.excerpt,
+      ...(imageUrl ? { images: [imageUrl] } : {}),
     },
   };
 }
@@ -115,6 +142,35 @@ export default async function ArticlePage({ params }: Props) {
 
   return (
     <main className="relative">
+      {/* Structured Data برای Google News و rich results */}
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'NewsArticle',
+          headline: article.title,
+          description: article.excerpt,
+          ...(getImageUrl(article) ? { image: getImageUrl(article) } : {}),
+          datePublished: article.publishedAt,
+          dateModified: article.updatedAt ?? article.publishedAt,
+          author: {
+            '@type': 'Person',
+            name: article.author || 'تحریریه فنزوم',
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'فنزوم',
+            logo: {
+              '@type': 'ImageObject',
+              url: 'https://fanzoom.ir/og-default.jpg',
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': `https://fanzoom.ir/article/${article.slug}`,
+          },
+        }}
+      />
+
       {/* ViewTracker - فقط وقتی صفحه واقعاً باز شد ویو رو زیاد می‌کنه */}
       <ViewTracker articleId={article.id} />
 
