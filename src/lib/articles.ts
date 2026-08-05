@@ -1,0 +1,46 @@
+// src/lib/articles.ts
+
+export function formatViews(n: number): string {
+  if (n >= 1000) {
+    const k = (n / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
+    return `${k} هزار`;
+  }
+  return n.toLocaleString('fa-IR');
+}
+
+export function relativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'همین حالا';
+  if (min < 60) return `${min.toLocaleString('fa-IR')} دقیقه پیش`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour.toLocaleString('fa-IR')} ساعت پیش`;
+  const day = Math.floor(hour / 24);
+  if (day < 30) return `${day.toLocaleString('fa-IR')} روز پیش`;
+  return new Date(dateStr).toLocaleDateString('fa-IR');
+}
+
+export const safeRelativeTime = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const fixed = iso.includes('T') ? iso : iso.replace(' ', 'T');
+  const d = new Date(fixed);
+  if (isNaN(d.getTime())) {
+    const only = new Date(fixed.slice(0, 10));
+    return isNaN(only.getTime()) ? null : only.toLocaleDateString('fa-IR');
+  }
+  return relativeTime(fixed);
+};
+// src/lib/articles.ts
+
+/**
+ * ساخت آدرس تصویر مقاله
+ * - خالی → رشته‌ی خالی
+ * - URL کامل (http) → مستقیم برمی‌گرداند (سازگاری با داده‌های قدیمی)
+ * - نام فایل → آدرس عمومی فایل در PocketBase را می‌سازد
+ */
+export function getImageUrl(article: { id: string; image?: string | null }): string {
+  if (!article.image) return '';
+  if (article.image.startsWith('http')) return article.image;
+  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
+  return `${pbUrl}/api/files/articles/${article.id}/${article.image}`;
+}
