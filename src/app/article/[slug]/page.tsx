@@ -201,18 +201,7 @@ export default async function ArticlePage({ params }: Props) {
           ])}
         />
         <Reveal>
-          <div className="flex items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-on-surface-variant transition-colors hover:bg-on-surface/8 hover:text-on-surface"
-            >
-              <Icon
-                name="arrow_back"
-                mirror
-                className="text-lg transition-transform duration-300 ease-standard group-hover:translate-x-0.5"
-              />
-              بازگشت به خانه
-            </Link>
+          <div className="mt-5 flex items-center gap-4">
             <Link
               href={`/category/${cat.slug}`}
               className="cat-chip rounded-full px-4 py-1.5 text-sm font-bold transition-transform duration-300 ease-standard hover:scale-105 active:scale-95"
