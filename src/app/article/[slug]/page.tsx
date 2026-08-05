@@ -16,6 +16,7 @@ import { getArticleBySlug, getRelatedArticles, type Article } from '@/lib/articl
 import { formatViews, relativeTime } from '@/lib/articles';
 import { ViewTracker } from '@/components/ViewTracker';
 import { JsonLd } from '@/components/JsonLd';
+import { Breadcrumbs, breadcrumbJsonLd } from '@/components/Breadcrumbs';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -185,6 +186,20 @@ export default async function ArticlePage({ params }: Props) {
 
       <article className="mx-auto max-w-4xl px-4 py-10 md:px-6">
         {/* بازگشت + دسته */}
+        <Breadcrumbs
+          items={[
+            { name: 'خانه', href: '/' },
+            { name: cat.name, href: `/category/${cat.slug}` },
+            { name: article.title },
+          ]}
+        />
+        <JsonLd
+          data={breadcrumbJsonLd([
+            { name: 'خانه', href: '/' },
+            { name: cat.name, href: `/category/${cat.slug}` },
+            { name: article.title },
+          ])}
+        />
         <Reveal>
           <div className="flex items-center justify-between gap-4">
             <Link

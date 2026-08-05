@@ -9,6 +9,8 @@ import { getImageUrl } from '@/lib/articles';
 import { findCategoryBySlug, type Category } from '@/lib/categories';
 import { getArticlesByCategory, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
+import { Breadcrumbs, breadcrumbJsonLd } from '@/components/Breadcrumbs';
+import { JsonLd } from '@/components/JsonLd';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -136,6 +138,8 @@ export default async function CategoryPage({ params }: Props) {
           className="pointer-events-none absolute -left-8 top-1/2 -translate-y-1/2 select-none text-[180px] text-on-surface/10 md:text-[260px]"
         />
         <div className="relative mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-20">
+          <Breadcrumbs items={[{ name: 'خانه', href: '/' }, { name: cat.name }]} />
+          <JsonLd data={breadcrumbJsonLd([{ name: 'خانه', href: '/' }, { name: cat.name }])} />
           <Reveal>
             <span
               className="cat-chip inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold"
