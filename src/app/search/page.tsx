@@ -22,7 +22,18 @@ const toneStyle = (tone: string) =>
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams;
   const query = q?.trim();
-  return { title: query ? `جستجو برای «${query}»` : 'جستجو' };
+  const searchUrl = query
+    ? `https://fanzoom.ir/search?q=${encodeURIComponent(query)}`
+    : 'https://fanzoom.ir/search';
+  
+  return {
+    title: query ? `جستجو برای «${query}» | فنزوم` : 'جستجو | فنزوم',
+    description: query
+      ? `نتایج جستجو برای «${query}» در پایگاه خبری فنزوم`
+      : 'جستجو در مقالات پایگاه خبری فنزوم',
+    alternates: { canonical: searchUrl },
+    robots: { index: false, follow: true }, // صفحات جستجو ایندکس نشوند (duplicate content)
+  };
 }
 
 function ResultRow({ article }: { article: Article }) {

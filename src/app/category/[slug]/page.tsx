@@ -22,7 +22,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const cat = findCategoryBySlug(slug);
   if (!cat) return { title: 'دسته پیدا نشد' };
-  return { title: cat.name, description: cat.description };
+  
+  const categoryUrl = `https://fanzoom.ir/category/${cat.slug}`;
+  
+  return {
+    title: `${cat.name} | فنزوم`,
+    description: cat.description,
+    alternates: { canonical: categoryUrl },
+    openGraph: {
+      type: 'website',
+      locale: 'fa_IR',
+      url: categoryUrl,
+      siteName: 'فنزوم',
+      title: `${cat.name} | فنزوم`,
+      description: cat.description,
+      images: [{ url: '/og-default.jpg', width: 1200, height: 630, alt: cat.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${cat.name} | فنزوم`,
+      description: cat.description,
+      images: ['/og-default.jpg'],
+    },
+  };
 }
 
 /* مقاله‌ی اول دسته — کارت بزرگِ افقی */
