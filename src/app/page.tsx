@@ -8,8 +8,7 @@ import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 
-// جلوگیری از static generation در build — صفحه به‌صورت dynamic با ISR کوتاه رندر شود
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
