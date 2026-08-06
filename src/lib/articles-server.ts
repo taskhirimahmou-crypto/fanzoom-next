@@ -78,12 +78,12 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
 }
 
 export const getHomePageData = cache(async () => {
-  const [featured, secondary, latest, trending] = await Promise.all([
-    withRetry(() => getFeaturedArticle()),
-    withRetry(() => getSecondaryArticles(2)),
-    withRetry(() => getLatestArticles(5)),
-    withRetry(() => getTrendingArticles(5)),
-  ]);
+  // سریالی برای جلوگیری از rate limiting
+  const featured = await getFeaturedArticle().catch(() => null);
+  const secondary = await getSecondaryArticles(2).catch(() => []);
+  const latest = await getLatestArticles(5).catch(() => []);
+  const trending = await getTrendingArticles(5).catch(() => []);
+  
   return { featured, secondary, latest, trending };
 });
 
