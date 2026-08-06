@@ -1,3 +1,0 @@
-## 2024-03-24 - [Fix N+1 queries in PocketBase fetching]
-**Learning:** Manual mapping and individual fetching after `getFullList` in PocketBase creates an N+1 query problem, increasing load times drastically on backend data processing.
-**Action:** Always utilize Pocketbase's `expand` parameter for relational queries, avoiding manual individual queries after a list fetch, as implemented successfully in page lists and component properties mapping.
