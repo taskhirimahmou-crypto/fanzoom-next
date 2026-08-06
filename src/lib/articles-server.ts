@@ -149,37 +149,50 @@ export const getRelatedArticles = unstable_cache(
 export async function getBookmarkedArticles(userId: string): Promise<Article[]> {
   const pb = await getServerPocketBase();
   
-  console.log('🔍 getBookmarkedArticles userId:', userId);
-  console.log('🔍 pb.authStore.isValid:', pb.authStore.isValid);
-  console.log('🔍 pb.authStore.record?.id:', pb.authStore.record?.id);
-  
-  // چک نهایی: اگر auth token معتبر نیست، آرایه‌ی خالی برگردان (نه 500)
+  // چک نهایی auth
   if (!pb.authStore.isValid || !pb.authStore.record?.id) {
     console.warn('🔴 getBookmarkedArticles: no valid auth');
     return [];
   }
   
-  // استفاده از userId از auth token (امن‌تر)
-  const authenticatedUserId = pb.authStore.record.id;
-  
   try {
-    const items = await pb.collection('bookmarks').getFullList({
-      filter: pb.filter('user = {:uid}', { uid: authenticatedUserId }),
-      expand: 'article',
+    // ۱. فقط bookmarkها را بگیر (بدون expand و بدون filter)
+    // listRule در PocketBase خودش filter می‌کند
+    const bookmarks = await pb.collection('bookmarks').getFullList({
       sort: '-created',
     });
     
-    console.log('🔍 Bookmarks items count:', items.length);
-    console.log('🔍 First item:', items[0]);
+    console.log('🔍 Bookmarks count:', bookmarks.length);
     
-    const articles = items
-      .map((b) => (b.expand as { article?: Article })?.article)
-      .filter((a): a is Article => Boolean(a))
-      .map(resolveImage);
+    // ۲. IDهای مقالات را استخراج کن
+    const articleIds = bookmarks
+      .map((b: any) => b.article)
+      .filter((id: string) => Boolean(id));
+    
+    if (articleIds.length === 0) {
+      return [];
+    }
+    
+    // ۳. مقالات را جداگانه بگیر (با error handling برای هر کدام)
+    const articles: Article[] = [];
+    for (const articleId of articleIds) {
+      try {
+        const article = await pb.collection('articles').getOne(articleId);
+        articles.push(resolveImage(article as Article));
+      } catch (err) {
+        // اگر مقاله وجود نداشت یا منتشر نشده بود، نادیده بگیر
+        console.warn(`🔴 Article ${articleId} not found or not published, skipping`);
+      }
+    }
     
     console.log('🔍 Resolved articles count:', articles.length);
     
-    return articles;
+    // ۴. بر اساس ترتیب bookmarkها مرتب کن
+    const articleMap = new Map(articles.map((a) => [a.id, a]));
+    return articleIds
+      .map((id: string) => articleMap.get(id))
+      .filter((a): a is Article => Boolean(a));
+      
   } catch (error) {
     console.error('🔴 getBookmarkedArticles error:', error);
     return [];
