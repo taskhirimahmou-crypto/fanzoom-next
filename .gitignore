@@ -2,66 +2,51 @@
 # Dependencies
 node_modules/
 
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment variables
+.env.local
+.env
+
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.py.class
+.Python
+env/
 venv/
 .venv/
-.env
-.env.local
-.env.*
-
-# Build outputs
-dist/
-build/
-*.min.js
-*.min.css
-*.bundle.js
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+*.pot
+*.po
+*~
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
 
 # Logs
 *.log
 
 # OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Testing
-.mypy_cache/
-.pytest_cache/
-.nyc_output/
-coverage/lcov-report/
-
-# Compiled
-*.class
-*.o
-*.obj
-*.so
-*.a
-*.dll
-*.exe
-*.out
-
-# Archives
-*.zip
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.gz
-*.rar
-*.7z
 ```
