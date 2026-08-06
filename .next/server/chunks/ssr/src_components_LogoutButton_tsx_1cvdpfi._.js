@@ -1,3 +1,0 @@
-module.exports=[67563,a=>{"use strict";var b=a.i(87924),c=a.i(50944),d=a.i(93026);a.s(["LogoutButton",0,function(){let a=(0,c.useRouter)(),e=async()=>{await fetch("/api/auth/logout",{method:"POST"}),a.push("/"),a.refresh()};return(0,b.jsxs)("button",{onClick:e,className:"inline-flex items-center gap-2 rounded-full bg-error px-6 py-3 text-sm font-bold text-on-error shadow-1 transition-all duration-300 ease-standard hover:shadow-2 hover:brightness-110 active:scale-95",children:[(0,b.jsx)(d.Icon,{name:"logout",className:"text-lg"}),"خروج از حساب"]})}])}];
-
-//# sourceMappingURL=src_components_LogoutButton_tsx_1cvdpfi._.js.map
