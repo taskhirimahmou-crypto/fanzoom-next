@@ -149,6 +149,10 @@ export const getRelatedArticles = unstable_cache(
 export async function getBookmarkedArticles(userId: string): Promise<Article[]> {
   const pb = await getServerPocketBase();
   
+  console.log('🔍 getBookmarkedArticles userId:', userId);
+  console.log('🔍 pb.authStore.isValid:', pb.authStore.isValid);
+  console.log('🔍 pb.authStore.record?.id:', pb.authStore.record?.id);
+  
   // چک نهایی: اگر auth token معتبر نیست، آرایه‌ی خالی برگردان (نه 500)
   if (!pb.authStore.isValid || !pb.authStore.record?.id) {
     console.warn('🔴 getBookmarkedArticles: no valid auth');
@@ -165,10 +169,17 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
       sort: '-created',
     });
     
-    return items
+    console.log('🔍 Bookmarks items count:', items.length);
+    console.log('🔍 First item:', items[0]);
+    
+    const articles = items
       .map((b) => (b.expand as { article?: Article })?.article)
       .filter((a): a is Article => Boolean(a))
       .map(resolveImage);
+    
+    console.log('🔍 Resolved articles count:', articles.length);
+    
+    return articles;
   } catch (error) {
     console.error('🔴 getBookmarkedArticles error:', error);
     return [];
