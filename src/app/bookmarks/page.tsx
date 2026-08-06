@@ -1,97 +1,66 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getBookmarkedArticles } from '@/lib/articles-server';
-import type { Article } from '@/lib/articles-server';
-import type { BookmarksResponse } from '@/lib/pb-types';
-import { Icon } from '@/components/Icon';
-import { Reveal } from '@/components/Reveal';
-import { BookmarkRow } from '@/components/BookmarkRow';
-
-export const metadata: Metadata = { title: 'نشان‌شده‌های من' };
-
-const toPersianDigits = (n: number) =>
-  n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+import { redirect } from 'next/navigation';
+import { ArticleVisual } from '@/components/ArticleVisual';
+import Link from 'next/link';
+import { allCategories, findCategoryBySlug } from '@/lib/categories';
 
 export default async function BookmarksPage() {
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id;
   
-  if (!userId) {
-    console.log('⚠️ No userId found, redirecting to login');
-    redirect('/login');
+  if (!userId || !pb.authStore.isValid) {
+    redirect('/login?redirect=/bookmarks');
   }
-
-  const bookmarkedArticles = await getBookmarkedArticles(userId);
-  console.log('🔍 Bookmarked articles:', bookmarkedArticles);
   
-  const articles = bookmarkedArticles;
-
+  const bookmarkedArticles = await getBookmarkedArticles(userId);
+  
   return (
-    <main className="relative">
-      {/* سربرگ */}
-      <header className="relative overflow-hidden border-b border-outline-variant/60">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-secondary-container/30 to-transparent"
-        />
-        <Icon
-          name="bookmark"
-          aria-hidden
-          className="pointer-events-none absolute -left-10 top-1/2 -translate-y-1/2 select-none text-[200px] text-on-surface/5"
-        />
-        <div className="relative mx-auto max-w-4xl px-4 py-12 md:px-6">
-          <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full bg-secondary-container px-4 py-1.5 text-sm font-bold text-on-secondary-container">
-              <Icon name="bookmark" fill className="text-lg" />
-              {toPersianDigits(articles.length)} مقاله
-            </span>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1 className="mt-4 text-4xl font-black tracking-tight text-on-surface md:text-5xl">
-              نشان‌شده‌های من
-            </h1>
-          </Reveal>
-          <Reveal delay={140}>
-            <p className="mt-3 leading-7 text-on-surface-variant">
-              مقالاتی که برای خواندن بعدی ذخیره کرده‌ای.
-            </p>
-          </Reveal>
+    <main className="mx-auto max-w-4xl px-4 py-10 md:px-6">
+      <h1 className="text-3xl font-black text-on-surface">مقاله‌های نشان‌شده</h1>
+      
+      {bookmarkedArticles.length === 0 ? (
+        <div className="mt-10 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-10 text-center">
+          <p className="text-lg text-on-surface-variant">
+            هنوز مقاله‌ای نشان نکرده‌ای.
+          </p>
+          <Link 
+            href="/" 
+            className="mt-4 inline-block rounded-full bg-primary px-6 py-2 text-sm font-bold text-on-primary hover:bg-primary/90"
+          >
+            بازگشت به صفحه اصلی
+          </Link>
         </div>
-      </header>
-
-      <section className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-        {articles.length === 0 ? (
-          <Reveal>
-            <div className="flex flex-col items-center gap-4 py-20 text-center">
-              <Icon name="bookmark" className="text-6xl text-on-surface/30" />
-              <p className="text-lg font-bold text-on-surface">
-                هنوز مقاله‌ای نشان نکرده‌ای
-              </p>
-              <p className="max-w-md text-sm leading-7 text-on-surface-variant">
-                در هر مقاله، روی دکمه‌ی «نشان‌کردن» بزن تا اینجا ذخیره شود و هر وقت
-                خواستی بخوانی‌شان.
-              </p>
-              <Link
-                href="/"
-                className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-1 transition-all duration-300 ease-standard hover:shadow-2 hover:brightness-110 active:scale-95"
+      ) : (
+        <div className="mt-6 flex flex-col gap-4">
+          {bookmarkedArticles.map((article) => {
+            const cat = findCategoryBySlug(article.category) ?? allCategories[0];
+            return (
+              <Link 
+                key={article.id}
+                href={`/article/${article.slug}`}
+                className="group flex items-center gap-4 rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-1 transition-all hover:-translate-y-0.5 hover:shadow-2"
               >
-                <Icon name="home" className="text-lg" />
-                برو به خانه
+                <ArticleVisual
+                  image={article.image}
+                  title={article.title}
+                  cat={cat}
+                  className="h-16 w-16 shrink-0 rounded-lg"
+                  iconClassName="text-2xl"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 block text-base font-bold text-on-surface group-hover:text-primary">
+                    {article.title}
+                  </span>
+                  <span className="mt-1 block text-xs text-on-surface-variant">
+                    {cat.name}
+                  </span>
+                </span>
               </Link>
-            </div>
-          </Reveal>
-        ) : (
-          <div className="flex flex-col gap-5">
-            {articles.map((article, i) => (
-              <Reveal key={article.id} delay={i * 60}>
-                <BookmarkRow article={article} />
-              </Reveal>
-            ))}
-          </div>
-        )}
-      </section>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
