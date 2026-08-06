@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getBookmarkedArticles } from '@/lib/articles-server';
 import type { Article } from '@/lib/articles-server';
 import type { BookmarksResponse } from '@/lib/pb-types';
 import { Icon } from '@/components/Icon';
@@ -16,23 +17,16 @@ const toPersianDigits = (n: number) =>
 export default async function BookmarksPage() {
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id;
-  if (!userId) redirect('/login');
+  
+  if (!userId) {
+    console.log('⚠️ No userId found, redirecting to login');
+    redirect('/login');
+  }
 
-  // ۱. خواندن bookmarkهای کاربر (استفاده از expand برای جلوگیری از N+1)
-  const bmItems = await pb.collection('bookmarks').getFullList<BookmarksResponse<{ article: Article }>>({
-    filter: pb.filter('user = {:uid}', { uid: userId }),
-    expand: 'article',
-  });
-
-  // مرتب‌سازی در JavaScript (جدیدترین اول)
-  bmItems.sort((a, b) =>
-    new Date(b.created).getTime() - new Date(a.created).getTime()
-  );
-
-  // ۲. استخراج مقاله‌ی هر bookmark
-  const articles = bmItems
-    .map(bm => bm.expand?.article)
-    .filter((a): a is Article => Boolean(a));
+  const bookmarkedArticles = await getBookmarkedArticles(userId);
+  console.log('🔍 Bookmarked articles:', bookmarkedArticles);
+  
+  const articles = bookmarkedArticles;
 
   return (
     <main className="relative">
