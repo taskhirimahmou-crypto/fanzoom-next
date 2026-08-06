@@ -13,7 +13,10 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await pb.collection('users').authWithPassword(email, password);
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(AUTH_COOKIE, auth.token, {
+    res.cookies.set(AUTH_COOKIE, JSON.stringify({
+      token: auth.token,
+      record: auth.record
+    }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
