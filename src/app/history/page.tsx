@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { safeRelativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
+import { resolveImage } from '@/lib/articles-server';
 import type { ReadingHistoryResponse } from '@/lib/pb-types';
 import { Reveal } from '@/components/Reveal';
 import { HistoryRow } from '@/components/HistoryRow';
@@ -35,7 +36,7 @@ export default async function HistoryPage() {
       // Using type assertion because pocketbase typegen might not have exactly matching last_read property
       const lastRead = (h as unknown as { last_read: string }).last_read || h.updated;
       if (!article) return null;
-      return { article, lastRead } as HistoryEntry;
+      return { article: resolveImage(article), lastRead } as HistoryEntry;
     });
 
     entries = loaded

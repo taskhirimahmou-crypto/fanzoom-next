@@ -9,7 +9,7 @@ export type Article = ArticlesResponse;
 const PUBLISHED = 'status = "published"';
 
 // ✅ تبدیلِ یک‌باره: نامِ فایلِ PB → URL کاملِ لیارا (برای داده‌های قدیمیِ URLدار هم امن است)
-function resolveImage<T extends { id: string; image?: string | null }>(article: T): T {
+export function resolveImage<T extends { id: string; image?: string | null }>(article: T): T {
   return { ...article, image: getImageUrl(article) };
 }
 
