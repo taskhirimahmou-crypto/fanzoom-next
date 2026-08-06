@@ -10,5 +10,10 @@ const POCKETBASE_URL =
  * و auth token یا cache بین درخواست‌ها نشت نکند.
  */
 export function getPocketBase(): PocketBase {
-  return new PocketBase(POCKETBASE_URL);
+  const pb = new PocketBase(POCKETBASE_URL);
+  
+  // افزایش timeout از 10s به 30s
+  pb.autoCancellation(false);
+  
+  return pb;
 }
