@@ -8,7 +8,7 @@ import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 
-export const revalidate = 300; // 5 دقیقه کش
+export const dynamic = 'force-dynamic';
 
 const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);

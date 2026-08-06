@@ -76,7 +76,7 @@ export default async function ArticlePage({ params }: Props) {
   if (!article) notFound();
 
   const cat = findCategoryBySlug(article.category) ?? allCategories[0];
-  const related = await getRelatedArticles(article, 3);
+  const related = await getRelatedArticles(article.category, article.id, 3);
     // آیا کاربر لاگین این مقاله را نشان کرده است؟
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id ?? null;
