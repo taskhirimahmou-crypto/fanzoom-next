@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { safeRelativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
+import type { ReadingHistoryResponse } from '@/lib/pb-types';
 import { Reveal } from '@/components/Reveal';
 import { HistoryRow } from '@/components/HistoryRow';
 import { Icon } from '@/components/Icon';
@@ -20,27 +21,22 @@ export default async function HistoryPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن رکوردهای تاریخچه (بدون sort/expand در query برای جلوگیری از خطا)
+  // ۱. خواندن رکوردهای تاریخچه (استفاده از expand در query برای جلوگیری از خطای N+1)
   let entries: HistoryEntry[] = [];
   try {
-    const res = await pb.collection('history').getFullList({
+    const res = await pb.collection('history').getFullList<ReadingHistoryResponse<{ article: Article }>>({
       filter: pb.filter('user = {:uid}', { uid: userId }),
+      expand: 'article',
     });
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
-    const loaded = await Promise.all(
-      res.map(async (h: unknown) => {
-        const articleId = (h as { article?: string }).article;
-        const lastRead = (h as { last_read: string }).last_read;
-        if (!articleId) return null;
-        try {
-          const a = await pb.collection('articles').getOne(articleId);
-          return { article: a as unknown as Article, lastRead } as HistoryEntry;
-        } catch {
-          return null; // مقاله حذف شده
-        }
-      }),
-    );
+    const loaded = res.map((h) => {
+      const article = h.expand?.article;
+      // Using type assertion because pocketbase typegen might not have exactly matching last_read property
+      const lastRead = (h as unknown as { last_read: string }).last_read || h.updated;
+      if (!article) return null;
+      return { article, lastRead } as HistoryEntry;
+    });
 
     entries = loaded
       .filter((e): e is HistoryEntry => Boolean(e))

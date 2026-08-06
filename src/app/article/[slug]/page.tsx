@@ -8,11 +8,12 @@ import type { CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { ReadingTracker } from '@/components/ReadingTracker';
 import { Reveal } from '@/components/Reveal';
+import type { CommentsResponse, UsersResponse } from '@/lib/pb-types';
 import { getImageUrl } from '@/lib/articles';
 import { CommentsSection, type CommentView } from '@/components/CommentsSection';
 import { ShareButton } from '@/components/ShareButton';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
-import { getArticleBySlug, getRelatedArticles, type Article } from '@/lib/articles-server';
+import { getArticleBySlug, getRelatedArticles } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { ViewTracker } from '@/components/ViewTracker';
 import { JsonLd } from '@/components/JsonLd';
@@ -97,40 +98,23 @@ export default async function ArticlePage({ params }: Props) {
      // کامنت‌های تأییدشده‌ی این مقاله
   let comments: CommentView[] = [];
   try {
-    const cRes = await pb.collection('comments').getList(1, 100, {
+    const cRes = await pb.collection('comments').getList<CommentsResponse<{ user: UsersResponse }>>(1, 100, {
       filter: pb.filter('article = {:aid} && status = "approved"', { aid: article.id }),
+      expand: 'user',
     });
 
-    // استفاده از any برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const userIds = [
-      ...new Set(cRes.items.map((c: unknown) => (c as { user?: string }).user).filter(Boolean)),
-    ];
-    
-    const userMap = new Map<string, { name: string; initial: string }>();
-    await Promise.all(
-      (userIds as string[]).map(async (uid) => {
-        try {
-          const u = (await pb.collection('users').getOne(uid)) as {
-            displayName?: string;
-            email?: string;
-          };
-          const name = u.displayName || u.email || 'کاربر';
-          userMap.set(uid, { name, initial: name[0] || 'ک' });
-        } catch {
-          userMap.set(uid, { name: 'کاربر', initial: 'ک' });
-        }
-      }),
-    );
-
     comments = cRes.items
-      .map((c: unknown) => {
-        const u = userMap.get((c as { user: string }).user) ?? { name: 'کاربر', initial: 'ک' };
+      .map((c) => {
+        const u = c.expand?.user;
+        const name = u?.displayName || u?.email || 'کاربر';
+        const initial = name[0] || 'ک';
+
         return {
-          id: (c as { id: string }).id,
-          body: (c as { content?: string }).content || '',
-          created: (c as { created?: string }).created || (c as { autodate?: string }).autodate || (c as { updated?: string }).updated || '',
-          authorName: u.name,
-          authorInitial: u.initial,
+          id: c.id,
+          body: c.content || '',
+          created: c.created || (c as unknown as { autodate?: string }).autodate || c.updated || '',
+          authorName: name,
+          authorInitial: initial,
         };
       })
       .sort((a, b) => (a.created < b.created ? 1 : -1)); // جدیدترین اول

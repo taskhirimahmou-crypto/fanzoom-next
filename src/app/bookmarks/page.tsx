@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import type { Article } from '@/lib/articles-server';
+import type { BookmarksResponse } from '@/lib/pb-types';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import { BookmarkRow } from '@/components/BookmarkRow';
@@ -17,30 +18,21 @@ export default async function BookmarksPage() {
   const userId = pb.authStore.record?.id;
   if (!userId) redirect('/login');
 
-  // ۱. خواندن bookmarkهای کاربر (بدون sort در query برای جلوگیری از خطای PocketBase)
-  const bmItems = await pb.collection('bookmarks').getFullList({
+  // ۱. خواندن bookmarkهای کاربر (استفاده از expand برای جلوگیری از N+1)
+  const bmItems = await pb.collection('bookmarks').getFullList<BookmarksResponse<{ article: Article }>>({
     filter: pb.filter('user = {:uid}', { uid: userId }),
+    expand: 'article',
   });
 
   // مرتب‌سازی در JavaScript (جدیدترین اول)
-  bmItems.sort((a: unknown, b: unknown) =>
-    new Date((b as { created: string }).created).getTime() - new Date((a as { created: string }).created).getTime()
+  bmItems.sort((a, b) =>
+    new Date(b.created).getTime() - new Date(a.created).getTime()
   );
 
-  // ۲. خواندن مقاله‌ی هر bookmark به‌صورت جداگانه
-  const articles: Article[] = [];
-  for (const bm of bmItems) {
-    // استفاده از unknown برای دور زدن سخت‌گیری TypeScript روی RecordModel
-    const articleId = (bm as { article?: string }).article;
-    if (!articleId) continue;
-    
-    try {
-      const a = await pb.collection('articles').getOne(articleId);
-      articles.push(a as unknown as Article);
-    } catch {
-      // مقاله حذف شده یا در دسترس نیست — رد کن
-    }
-  }
+  // ۲. استخراج مقاله‌ی هر bookmark
+  const articles = bmItems
+    .map(bm => bm.expand?.article)
+    .filter((a): a is Article => Boolean(a));
 
   return (
     <main className="relative">
