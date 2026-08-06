@@ -8,8 +8,7 @@ import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 
-
-// ISR: صفحه هر ۶۰ ثانیه یک‌بار در پس‌زمینه بازسازی می‌شود
+// جلوگیری از static generation در build — صفحه به‌صورت dynamic با ISR کوتاه رندر شود
 export const revalidate = 60;
 
 const toPersianDigits = (n: number) =>

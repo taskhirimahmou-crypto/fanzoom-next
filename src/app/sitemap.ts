@@ -5,6 +5,8 @@ import { allCategories } from '@/lib/categories';
 
 const BASE_URL = 'https://fanzoom.ir';
 
+export const dynamic = 'force-dynamic';
+
 // هر ساعت یک‌بار بازسازی شود
 export const revalidate = 3600;
 
