@@ -18,6 +18,7 @@ import { formatViews, relativeTime } from '@/lib/articles';
 import { ViewTracker } from '@/components/ViewTracker';
 import { JsonLd } from '@/components/JsonLd';
 import { Breadcrumbs, breadcrumbJsonLd } from '@/components/Breadcrumbs';
+import DOMPurify from 'isomorphic-dompurify';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -259,7 +260,7 @@ export default async function ArticlePage({ params }: Props) {
         <Reveal delay={320}>
           <div
             className="article-content mt-10"
-            dangerouslySetInnerHTML={{ __html: article.content }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
           />
                   <ReadingTracker articleId={article.id} signedIn={!!userId} />
                   <CommentsSection
