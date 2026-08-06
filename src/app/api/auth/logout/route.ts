@@ -4,6 +4,6 @@ import { AUTH_COOKIE } from '@/lib/auth-cookies';
 
 export async function POST() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(AUTH_COOKIE, '', { httpOnly: true, path: '/', maxAge: 0 });
+  res.cookies.delete(AUTH_COOKIE);
   return res;
 }

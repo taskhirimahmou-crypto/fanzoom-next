@@ -14,21 +14,16 @@ export async function getServerPocketBase() {
   const pb = new PocketBase(url);
   
   const cookieStore = await cookies();
-  const authCookie = cookieStore.get('pb_auth');
+  const authCookie = cookieStore.get(AUTH_COOKIE);
   
   if (authCookie?.value) {
-    // load auth state از cookie
-    pb.authStore.loadFromCookie(`pb_auth=${authCookie.value}`);
-    
-    // اگر token معتبر به نظر می‌رسد، refresh کن
-    if (pb.authStore.isValid) {
-      try {
-        await pb.collection('users').authRefresh();
-      } catch (err) {
-        // token منقضی شده → پاک کن
-        console.warn('🔴 Auth token expired/invalid, clearing');
-        pb.authStore.clear();
+    try {
+      const { token, record } = JSON.parse(authCookie.value);
+      if (token && record) {
+        pb.authStore.save(token, record);
       }
+    } catch (err) {
+      console.warn('🔴 Failed to parse auth cookie:', err);
     }
   }
   
