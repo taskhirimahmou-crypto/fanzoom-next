@@ -1,5 +1,5 @@
 // src/lib/articles-server.ts
-import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { getPocketBase } from '@/lib/pocketbase';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getImageUrl } from '@/lib/articles';
@@ -77,37 +77,47 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
   });
 }
 
-export const getHomePageData = cache(async () => {
-  // سریالی برای جلوگیری از rate limiting
-  const featured = await getFeaturedArticle().catch(() => null);
-  const secondary = await getSecondaryArticles(2).catch(() => []);
-  const latest = await getLatestArticles(5).catch(() => []);
-  const trending = await getTrendingArticles(5).catch(() => []);
-  
-  return { featured, secondary, latest, trending };
-});
+export const getHomePageData = unstable_cache(
+  async () => {
+    const featured = await getFeaturedArticle().catch(() => null);
+    const secondary = await getSecondaryArticles(2).catch(() => []);
+    const latest = await getLatestArticles(5).catch(() => []);
+    const trending = await getTrendingArticles(5).catch(() => []);
+    return { featured, secondary, latest, trending };
+  },
+  ['home-data'],
+  { revalidate: 120 }
+);
 
-export const getArticleBySlug = cache(async (slug: string): Promise<Article | null> => {
-  const pb = getPocketBase();
-  try {
-    const item = await pb.collection('articles').getFirstListItem(pb.filter('slug = {:slug}', { slug })) as unknown as Article;
-    return resolveImage(item);
-  } catch {
-    return null;
-  }
-});
+export const getArticleBySlug = unstable_cache(
+  async (slug: string): Promise<Article | null> => {
+    const pb = getPocketBase();
+    try {
+      const item = await pb.collection('articles').getFirstListItem(pb.filter('slug = {:slug}', { slug })) as unknown as Article;
+      return resolveImage(item);
+    } catch {
+      return null;
+    }
+  },
+  ['article-slug'],
+  { revalidate: 180 }
+);
 
-export const getArticlesByCategory = cache(async (categorySlug: string, limit = 20): Promise<Article[]> => {
-  const pb = getPocketBase();
-  const { items } = await pb.collection('articles').getList(1, limit, {
-    filter: pb.filter(`${PUBLISHED} && category = {:cat}`, { cat: categorySlug }),
-    sort: '-publishedAt',
-    skipTotal: true,
-  });
-  return (items as unknown as Article[]).map(resolveImage);
-});
+export const getArticlesByCategory = unstable_cache(
+  async (categorySlug: string, limit = 20): Promise<Article[]> => {
+    const pb = getPocketBase();
+    const { items } = await pb.collection('articles').getList(1, limit, {
+      filter: pb.filter(`${PUBLISHED} && category = {:cat}`, { cat: categorySlug }),
+      sort: '-publishedAt',
+      skipTotal: true,
+    });
+    return (items as unknown as Article[]).map(resolveImage);
+  },
+  ['category-articles'],
+  { revalidate: 120 }
+);
 
-export const searchArticles = cache(async (query: string, limit = 20): Promise<Article[]> => {
+export async function searchArticles(query: string, limit = 20): Promise<Article[]> {
   const q = query.trim();
   if (!q) return [];
   const pb = getPocketBase();
@@ -117,20 +127,24 @@ export const searchArticles = cache(async (query: string, limit = 20): Promise<A
     skipTotal: true,
   });
   return (items as unknown as Article[]).map(resolveImage);
-});
+}
 
-export const getRelatedArticles = cache(async (article: Article, limit = 3): Promise<Article[]> => {
-  const pb = getPocketBase();
-  const { items } = await pb.collection('articles').getList(1, limit, {
-    filter: pb.filter(`${PUBLISHED} && category = {:cat} && id != {:id}`, {
-      cat: article.category,
-      id: article.id,
-    }),
-    sort: '-publishedAt',
-    skipTotal: true,
-  });
-  return (items as unknown as Article[]).map(resolveImage);
-});
+export const getRelatedArticles = unstable_cache(
+  async (category: string, articleId: string, limit = 3): Promise<Article[]> => {
+    const pb = getPocketBase();
+    const { items } = await pb.collection('articles').getList(1, limit, {
+      filter: pb.filter(`${PUBLISHED} && category = {:cat} && id != {:id}`, {
+        cat: category,
+        id: articleId,
+      }),
+      sort: '-publishedAt',
+      skipTotal: true,
+    });
+    return (items as unknown as Article[]).map(resolveImage);
+  },
+  ['related'],
+  { revalidate: 300 }
+);
 
 export async function getBookmarkedArticles(userId: string): Promise<Article[]> {
   const pb = await getServerPocketBase();

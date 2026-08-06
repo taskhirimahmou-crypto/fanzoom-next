@@ -2,12 +2,26 @@
 import type { MetadataRoute } from 'next';
 import { getPocketBase } from '@/lib/pocketbase';
 import { allCategories } from '@/lib/categories';
+import { unstable_cache } from 'next/cache';
 
 const BASE_URL = 'https://fanzoom.ir';
 
-export const revalidate = 3600; // 1 ساعت کش
+export const dynamic = 'force-dynamic';
 
 // هر ساعت یک‌بار بازسازی شود
+
+const fetchPublished = unstable_cache(
+  async () => {
+    const pb = getPocketBase();
+    return await pb.collection('articles').getFullList({
+      filter: 'status = "published"',
+      sort: '-publishedAt',
+      fields: 'slug,publishedAt',
+    });
+  },
+  ['sitemap-articles'],
+  { revalidate: 3600 }
+);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -28,12 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // همه‌ی مقالات منتشرشده
   let articlePages: MetadataRoute.Sitemap = [];
   try {
-    const pb = getPocketBase();
-    const articles = await pb.collection('articles').getFullList({
-      filter: 'status = "published"',
-      sort: '-publishedAt',
-      fields: 'slug,publishedAt',
-    });
+    const articles = await fetchPublished();
 
     articlePages = articles.map((a) => {
       const item = a as unknown as { slug: string; publishedAt?: string };

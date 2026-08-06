@@ -12,6 +12,8 @@ import { formatViews, relativeTime } from '@/lib/articles';
 import { Breadcrumbs, breadcrumbJsonLd } from '@/components/Breadcrumbs';
 import { JsonLd } from '@/components/JsonLd';
 
+export const dynamic = 'force-dynamic';
+
 type Props = { params: Promise<{ slug: string }> };
 
 const toPersianDigits = (n: number) =>
