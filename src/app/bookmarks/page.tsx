@@ -9,11 +9,16 @@ export default async function BookmarksPage() {
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id;
   
+  console.log('🔍 BookmarksPage userId:', userId);
+  console.log('🔍 BookmarksPage isValid:', pb.authStore.isValid);
+  
   if (!userId || !pb.authStore.isValid) {
     redirect('/login?redirect=/bookmarks');
   }
   
   const bookmarkedArticles = await getBookmarkedArticles(userId);
+  
+  console.log('🔍 BookmarksPage articles count:', bookmarkedArticles.length);
   
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 md:px-6">
