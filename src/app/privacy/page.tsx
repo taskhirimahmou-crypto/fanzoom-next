@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <div className="article-content mt-8 space-y-8">
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="folder_shared" className="text-2xl text-primary" />
+            <Icon name="shield" className="text-2xl text-primary" />
             داده‌های جمع‌آوری‌شده
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="cookie" className="text-2xl text-primary" />
+            <Icon name="insights" className="text-2xl text-primary" />
             کوکی‌ها
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="shield" className="text-2xl text-primary" />
+            <Icon name="lock" className="text-2xl text-primary" />
             عدم فروش داده‌ها
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="security" className="text-2xl text-primary" />
+            <Icon name="shield" className="text-2xl text-primary" />
             امنیت داده‌ها
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="update" className="text-2xl text-primary" />
+            <Icon name="schedule" className="text-2xl text-primary" />
             به‌روزرسانی سیاست حریم خصوصی
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
