@@ -32,7 +32,7 @@ export default function TermsPage() {
       <div className="article-content mt-8 space-y-8">
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="description" className="text-2xl text-primary" />
+            <Icon name="newspaper" className="text-2xl text-primary" />
             مالکیت محتوا
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -45,7 +45,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="rule" className="text-2xl text-primary" />
+            <Icon name="edit_note" className="text-2xl text-primary" />
             قوانین ثبت نظر
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -65,7 +65,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="gavel" className="text-2xl text-primary" />
+            <Icon name="tune" className="text-2xl text-primary" />
             محدودیت مسئولیت
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -78,7 +78,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="account_circle" className="text-2xl text-primary" />
+            <Icon name="manage_accounts" className="text-2xl text-primary" />
             حساب کاربری
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
@@ -91,7 +91,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
-            <Icon name="policy" className="text-2xl text-primary" />
+            <Icon name="check_circle" className="text-2xl text-primary" />
             تغییر شرایط
           </h2>
           <p className="mt-3 leading-8 text-on-surface-variant">
