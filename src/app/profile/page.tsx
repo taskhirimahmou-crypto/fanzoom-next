@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { Icon } from '@/components/Icon';
+import { InterestsPicker } from '@/components/InterestsPicker';
 import { LogoutButton } from '@/components/LogoutButton';
 import { findCategoryBySlug } from '@/lib/categories';
 
@@ -31,9 +32,6 @@ export default async function ProfilePage() {
     month: 'long',
     day: 'numeric',
   });
-  const interests = (record.interests ?? [])
-    .map((slug) => findCategoryBySlug(slug))
-    .filter(Boolean);
 
   return (
     <main className="relative">
@@ -78,30 +76,10 @@ export default async function ProfilePage() {
         </div>
 
         {/* علایق */}
-        <div className="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 shadow-1">
-          <h2 className="flex items-center gap-2.5 text-lg font-black text-on-surface">
-            <Icon name="tune" className="text-2xl text-primary" />
-            دسته‌بندی‌های مورد علاقه
-          </h2>
-          {interests.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {interests.map((cat) => (
-                <span
-                  key={cat!.slug}
-                  className="cat-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold"
-                  style={toneStyle(cat!.tone)}
-                >
-                  <Icon name={cat!.symbol} className="text-lg" />
-                  {cat!.name}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 text-on-surface-variant">
-              هنوز دسته‌بندی مورد علاقه‌ای انتخاب نکرده‌ای.
-            </p>
-          )}
-        </div>
+    {/* علاقه‌مندی‌ها — Interactive Picker */}
+<div className="mt-6">
+  <InterestsPicker initialInterests={record.interests ?? []} />
+</div>
 
         {/* حساب */}
         <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 shadow-1 sm:flex-row sm:items-center">
