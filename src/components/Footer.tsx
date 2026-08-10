@@ -29,7 +29,7 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
               <Image
-                src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+                src="/logo.webp"
                 alt="فن زوم"
                 width={36}
                 height={36}

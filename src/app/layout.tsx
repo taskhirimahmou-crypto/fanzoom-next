@@ -113,19 +113,6 @@ export default async function RootLayout({
       className={`${vazir.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        {/* Material Symbols از CDN با font-display: swap */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-        />
-        {/* Preload برای بهبود FCP */}
-        <link
-          rel="preload"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-          as="style"
-        />
-      </head>
       <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">

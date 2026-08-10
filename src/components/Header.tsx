@@ -87,7 +87,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
             className="flex items-center gap-2.5 rounded-full p-1 transition-opacity hover:opacity-80"
           >
             <Image
-              src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+              src="/logo.webp"
               alt="فن زوم"
               width={36}
               height={36}
@@ -225,7 +225,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
           <div className="flex items-center justify-between border-b border-outline-variant/60 px-4 py-4">
             <div className="flex items-center gap-2.5">
               <Image
-                src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+                src="/logo.webp"
                 alt="فن زوم"
                 width={36}
                 height={36}
