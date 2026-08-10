@@ -277,22 +277,23 @@ export default async function HomePage() {
       )}
 
       {/* بخش ویژه */}
-      {featuredArticle && (
-        <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Reveal className="h-full lg:col-span-2">
-              <FeaturedCard article={featuredArticle} />
-            </Reveal>
-            <div className="grid gap-6 lg:grid-rows-2">
-              {secondaryArticles.slice(0, 2).map((article, i) => (
-                <Reveal key={article.id} delay={120 + i * 120} className="h-full">
-                  <SecondaryCard article={article} />
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+ {featuredArticle && (
+  <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
+    <div className="grid gap-6 lg:grid-cols-3">
+      {/* FeaturedCard بدون Reveal — LCP element نباید انیمیشن داشته باشد */}
+      <div className="h-full lg:col-span-2">
+        <FeaturedCard article={featuredArticle} />
+      </div>
+      <div className="grid gap-6 lg:grid-rows-2">
+        {secondaryArticles.slice(0, 2).map((article, i) => (
+          <Reveal key={article.id} delay={120 + i * 120} className="h-full">
+            <SecondaryCard article={article} />
+          </Reveal>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
 
       {/* آخرین اخبار + داغ‌ترین‌ها */}
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
