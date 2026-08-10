@@ -250,10 +250,7 @@ export default async function HomePage() {
   // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
 let recommended: Article[] = [];
-let debugInfo = { user: null as string | null, interests: [] as string[], count: 0 };
-
 const user = await getCurrentUser();
-debugInfo.user = user?.id || null;
 
 if (user) {
   try {
@@ -261,20 +258,12 @@ if (user) {
     const fullUser = (await pb.collection('users').getOne(user.id)) as {
       interests?: string[];
     };
-    debugInfo.interests = fullUser.interests || [];
-    
     if (fullUser.interests && fullUser.interests.length > 0) {
       recommended = await getRecommendedArticles(fullUser.interests, 4);
-      debugInfo.count = recommended.length;
     }
-    
-    console.error('🟢 HomePage debug:', JSON.stringify(debugInfo));
-  } catch (err) {
-    console.error('🔴 HomePage error:', err);
+  } catch {
     recommended = [];
   }
-} else {
-  console.error('🟡 HomePage: user not logged in');
 }
   
 
