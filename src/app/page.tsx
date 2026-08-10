@@ -8,6 +8,38 @@ import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 
+const homeJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': 'https://fanzoom.ir/#website',
+      url: 'https://fanzoom.ir',
+      name: 'فن زوم',
+      description: 'پایگاه خبری فناوری ایران',
+      inLanguage: 'fa-IR',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://fanzoom.ir/search?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@type': 'Organization',
+      '@id': 'https://fanzoom.ir/#organization',
+      name: 'فن زوم',
+      url: 'https://fanzoom.ir',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://fanzoom.ir/logo.webp',
+      },
+    },
+  ],
+};
+
 export const dynamic = 'force-dynamic';
 
 const toPersianDigits = (n: number) =>
@@ -207,7 +239,12 @@ export default async function HomePage() {
   const breakingNews = latest.map((a) => a.title);
 
   return (
+    
     <main className="relative pcb-bg">
+      <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
+/>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-gradient-to-b from-primary-container/20 to-transparent"
