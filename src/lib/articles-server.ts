@@ -199,6 +199,7 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
   }
 }
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌های کاربر ──
+// ── مقالات پیشنهادی بر اساس علاقه‌مندی‌های کاربر ──
 export const getRecommendedArticles = async (
   interests: string[],
   limit = 4
@@ -208,16 +209,26 @@ export const getRecommendedArticles = async (
   const fetcher = unstable_cache(
     async (cats: string[]) => {
       const pb = getPocketBase();
+
+      // فیلتر ساده و قابل اعتماد (به جای in)
+      const categoryFilter = cats
+        .map((c) => `category = "${c}"`)
+        .join(' || ');
+      const filter = `status = "published" && (${categoryFilter})`;
+
+      console.error('🟢 getRecommendedArticles filter:', filter);
+
       const items = await pb.collection('articles').getList(1, limit, {
-        filter: pb.filter('status = "published" && category in {:categories}', {
-          categories: cats,
-        }),
+        filter,
         sort: '-publishedAt',
       });
+
+      console.error('🟢 getRecommendedArticles found:', items.items.length);
+
       return items.items.map((i) => resolveImage(i as unknown as Article));
     },
-    ['recommended-articles', ...interests],
-    { revalidate: 300 } // کش ۵ دقیقه
+    ['recommended-articles-v2', ...interests],  // ← کلید cache جدید (v2) برای شکستن cache قدیمی
+    { revalidate: 60 }  // ← cache فقط ۱ دقیقه
   );
 
   return fetcher(interests);
