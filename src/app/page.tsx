@@ -248,21 +248,35 @@ export default async function HomePage() {
   const { featured, secondary, latest, trending } = await getHomePageData();
 
   // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
-  let recommended: Article[] = [];
-  const user = await getCurrentUser();
-  if (user) {
-    try {
-      const pb = await getServerPocketBase();
-      const fullUser = (await pb.collection('users').getOne(user.id)) as {
-        interests?: string[];
-      };
-      if (fullUser.interests && fullUser.interests.length > 0) {
-        recommended = await getRecommendedArticles(fullUser.interests, 4);
-      }
-    } catch {
-      recommended = [];
+// ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
+let recommended: Article[] = [];
+let debugInfo = { user: null as string | null, interests: [] as string[], count: 0 };
+
+const user = await getCurrentUser();
+debugInfo.user = user?.id || null;
+
+if (user) {
+  try {
+    const pb = await getServerPocketBase();
+    const fullUser = (await pb.collection('users').getOne(user.id)) as {
+      interests?: string[];
+    };
+    debugInfo.interests = fullUser.interests || [];
+    
+    if (fullUser.interests && fullUser.interests.length > 0) {
+      recommended = await getRecommendedArticles(fullUser.interests, 4);
+      debugInfo.count = recommended.length;
     }
+    
+    console.error('🟢 HomePage debug:', JSON.stringify(debugInfo));
+  } catch (err) {
+    console.error('🔴 HomePage error:', err);
+    recommended = [];
   }
+} else {
+  console.error('🟡 HomePage: user not logged in');
+}
+  
 
   const featuredArticle = featured ?? latest[0] ?? null;
   const secondaryArticles = featured ? secondary : latest.slice(1, 3);
@@ -326,6 +340,16 @@ export default async function HomePage() {
 )}
 
 {/* پیشنهاد برای شما — فقط برای کاربر لاگین‌شده با علاقه‌مندی */}
+{/* DEBUG - بعد از تست حذف شود */}
+{user && (
+  <div className="mx-auto max-w-7xl px-4 py-4 md:px-6">
+    <div className="rounded-xl border border-warning bg-warning-container p-4 text-xs">
+      <strong>DEBUG:</strong> user: {debugInfo.user?.slice(0, 8)}... | 
+      interests: [{debugInfo.interests.join(', ')}] | 
+      recommended count: {debugInfo.count}
+    </div>
+  </div>
+)}
 {recommended.length > 0 && (
   <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
     <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
