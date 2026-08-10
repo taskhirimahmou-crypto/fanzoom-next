@@ -340,16 +340,7 @@ if (user) {
 )}
 
 {/* پیشنهاد برای شما — فقط برای کاربر لاگین‌شده با علاقه‌مندی */}
-{/* DEBUG - بعد از تست حذف شود */}
-{user && (
-  <div className="mx-auto max-w-7xl px-4 py-4 md:px-6">
-    <div className="rounded-xl border border-warning bg-warning-container p-4 text-xs">
-      <strong>DEBUG:</strong> user: {debugInfo.user?.slice(0, 8)}... | 
-      interests: [{debugInfo.interests.join(', ')}] | 
-      recommended count: {debugInfo.count}
-    </div>
-  </div>
-)}
+
 {recommended.length > 0 && (
   <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
     <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
