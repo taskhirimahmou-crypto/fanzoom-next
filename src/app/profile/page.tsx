@@ -25,6 +25,10 @@ export default async function ProfilePage() {
 
   // اگر لاگین نیست، به صفحه‌ی ورود برو
   if (!record) redirect('/login');
+  // record تازه و کامل از PocketBase (authStore فقط فیلدهای پایه را دارد)
+const freshUser = (await pb.collection('users').getOne(record.id)) as {
+  interests?: string[];
+};
 
   const initial = (record.displayName || record.email || 'ک')[0];
   const memberSince = new Date(record.created).toLocaleDateString('fa-IR', {
@@ -78,7 +82,7 @@ export default async function ProfilePage() {
         {/* علایق */}
     {/* علاقه‌مندی‌ها — Interactive Picker */}
 <div className="mt-6">
-  <InterestsPicker initialInterests={record.interests ?? []} />
+<InterestsPicker initialInterests={freshUser.interests ?? []} />
 </div>
 
         {/* حساب */}
