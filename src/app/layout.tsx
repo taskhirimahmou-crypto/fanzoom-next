@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { Vazirmatn } from 'next/font/google';
-import 'material-symbols/rounded.css';
+import { Vazirmatn, Material_Symbols_Rounded } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -13,6 +12,15 @@ const vazir = Vazirmatn({
   variable: '--font-vazir',
   display: 'swap',
   preload: true,
+});
+
+const materialSymbols = Material_Symbols_Rounded({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400'],
+  variable: '--font-material-symbols',
+  preload: true,
+  fallback: ['sans-serif'],
 });
 
 export const metadata: Metadata = {
@@ -109,7 +117,7 @@ export default async function RootLayout({
       lang="fa"
       dir="rtl"
       data-scroll-behavior="smooth"
-      className={`${vazir.variable} h-full antialiased`}
+      className={`${vazir.variable} ${materialSymbols.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
