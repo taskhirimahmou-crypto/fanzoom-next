@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Icon } from '@/components/Icon';
 import { useTheme } from '@/components/ThemeProvider';
 import { mainNavCategories, moreNavCategories } from '@/lib/categories';
@@ -85,9 +86,12 @@ export function Header({ user }: { user: CurrentUser | null }) {
             href="/"
             className="flex items-center gap-2.5 rounded-full p-1 transition-opacity hover:opacity-80"
           >
-            <img
+            <Image
               src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
               alt="فن زوم"
+              width={36}
+              height={36}
+              priority={false}
               className="h-9 w-9 rounded-xl object-cover shadow-1"
             />
             <span className="text-lg font-black tracking-tight text-on-surface">فن زوم</span>
@@ -220,9 +224,12 @@ export function Header({ user }: { user: CurrentUser | null }) {
         >
           <div className="flex items-center justify-between border-b border-outline-variant/60 px-4 py-4">
             <div className="flex items-center gap-2.5">
-              <img
+              <Image
                 src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
                 alt="فن زوم"
+                width={36}
+                height={36}
+                priority={false}
                 className="h-9 w-9 rounded-xl object-cover shadow-1"
               />
               <span className="text-lg font-black text-on-surface">فن زوم</span>
