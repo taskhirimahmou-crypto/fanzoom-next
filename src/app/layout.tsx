@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Vazirmatn, Material_Symbols_Rounded } from 'next/font/google';
+import { Vazirmatn } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -14,14 +14,7 @@ const vazir = Vazirmatn({
   preload: true,
 });
 
-const materialSymbols = Material_Symbols_Rounded({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400'],
-  variable: '--font-material-symbols',
-  preload: true,
-  fallback: ['sans-serif'],
-});
+// Material Symbols را از CDN لود می‌کنیم (نه next/font)
 
 export const metadata: Metadata = {
   // آدرس پایه سایت — برای تمام لینک‌های نسبی (Open Graph، canonical و...)
@@ -117,9 +110,22 @@ export default async function RootLayout({
       lang="fa"
       dir="rtl"
       data-scroll-behavior="smooth"
-      className={`${vazir.variable} ${materialSymbols.variable} h-full antialiased`}
+      className={`${vazir.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Material Symbols از CDN با font-display: swap */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+        {/* Preload برای بهبود FCP */}
+        <link
+          rel="preload"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+          as="style"
+        />
+      </head>
       <body className="min-h-full bg-surface text-on-surface selection:bg-primary/20 selection:text-on-primary-container">
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">
