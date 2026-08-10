@@ -297,9 +297,36 @@ if (user) {
 
 {/* پیشنهاد برای شما — فقط برای کاربر لاگین‌شده با علاقه‌مندی */}
 
+{recommended.length > 0 && (
+  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+    <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
+    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {recommended.map((article) => (
+        <SecondaryCard key={article.id} article={article} />
+      ))}
+    </div>
+  </section>
+)}
+
+{/* پیشنهاد برای شما — Carousel */}
+{recommended.length > 0 && (
+  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+    <div className="flex items-center justify-between gap-3">
+      <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
+      <Link
+        href="/for-you"
+        className="inline-flex items-center gap-1.5 rounded-full bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container transition-all hover:shadow-1 active:scale-95"
+      >
+        مشاهده بیشتر
+        <Icon name="arrow_back" mirror className="text-base" />
+      </Link>
+    </div>
+
+    <RecommendedCarousel articles={recommended.slice(0, 10)} />
 
 
-
+  </section>
+)}
 
       {/* آخرین اخبار + داغ‌ترین‌ها */}
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
