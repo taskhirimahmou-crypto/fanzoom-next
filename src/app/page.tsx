@@ -170,7 +170,35 @@ function TrendingItem({ article, rank }: { article: Article; rank: number }) {
     </Link>
   );
 }
-
+export const metadata = {
+  title: 'فن زوم | اخبار فناوری، هوش مصنوعی و نوآوری',
+  description: 'فن زوم - رسانه خبری فناوری با پوشش آخرین اخبار موبایل، سخت‌افزار، هوش مصنوعی، امنیت سایبری، گیمینگ و نوآوری‌های تکنولوژی',
+  openGraph: {
+    title: 'فن زوم | اخبار فناوری',
+    description: 'رسانه خبری فناوری با پوشش آخرین اخبار و تحلیل‌ها',
+    type: 'website',
+    url: 'https://fanzoom.ir',
+    siteName: 'فن زوم',
+    locale: 'fa_IR',
+    images: [
+      {
+        url: '/og-default.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'فن زوم - اخبار فناوری',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'فن زوم | اخبار فناوری',
+    description: 'رسانه خبری فناوری با پوشش آخرین اخبار و تحلیل‌ها',
+    images: ['/og-default.jpg'],
+  },
+  alternates: {
+    canonical: 'https://fanzoom.ir',
+  },
+};
 export default async function HomePage() {
   const { featured, secondary, latest, trending } = await getHomePageData();
 
