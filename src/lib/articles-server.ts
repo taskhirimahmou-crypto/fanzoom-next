@@ -200,36 +200,59 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
 }
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌های کاربر ──
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌های کاربر ──
-export const getRecommendedArticles = async (
-  interests: string[],
-  limit = 4
-): Promise<Article[]> => {
+// ── استخر مقالات پیشنهادی با تنوع بین دسته‌بندی‌ها ──
+const getRecommendedPool = async (interests: string[]): Promise<Article[]> => {
   if (!interests || interests.length === 0) return [];
 
   const fetcher = unstable_cache(
     async (cats: string[]) => {
       const pb = getPocketBase();
+      const perCat = 12;
 
-      // فیلتر ساده و قابل اعتماد (به جای in)
-      const categoryFilter = cats
-        .map((c) => `category = "${c}"`)
-        .join(' || ');
-      const filter = `status = "published" && (${categoryFilter})`;
+      const lists = await Promise.all(
+        cats.map((c) =>
+          pb
+            .collection('articles')
+            .getList(1, perCat, {
+              filter: `status = "published" && category = "${c}"`,
+              sort: '-publishedAt',
+            })
+            .catch(() => null)
+        )
+      );
 
-      console.error('🟢 getRecommendedArticles filter:', filter);
+      const arrays = lists
+        .filter((l): l is NonNullable<typeof l> => l !== null)
+        .map((l) => l.items.map((i) => resolveImage(i as unknown as Article)));
 
-      const items = await pb.collection('articles').getList(1, limit, {
-        filter,
-        sort: '-publishedAt',
-      });
-
-      console.error('🟢 getRecommendedArticles found:', items.items.length);
-
-      return items.items.map((i) => resolveImage(i as unknown as Article));
+      // Round-robin: یک مقاله از هر دسته به نوبت → تنوع کامل
+      const pool: Article[] = [];
+      let idx = 0;
+      for (;;) {
+        let added = false;
+        for (const arr of arrays) {
+          if (arr[idx]) {
+            pool.push(arr[idx]);
+            added = true;
+          }
+        }
+        if (!added) break;
+        idx++;
+      }
+      return pool;
     },
-    ['recommended-articles-v2', ...interests],  // ← کلید cache جدید (v2) برای شکستن cache قدیمی
-    { revalidate: 60 }  // ← cache فقط ۱ دقیقه
+    ['recommended-pool-v1', ...interests],
+    { revalidate: 60 }
   );
 
   return fetcher(interests);
+};
+
+export const getRecommendedArticles = async (
+  interests: string[],
+  limit = 10,
+  offset = 0
+): Promise<Article[]> => {
+  const pool = await getRecommendedPool(interests);
+  return pool.slice(offset, offset + limit);
 };

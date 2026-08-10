@@ -10,6 +10,8 @@ import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
+import { SecondaryCard } from '@/components/SecondaryCard';
+
 
 const homeJsonLd = {
   '@context': 'https://schema.org',
@@ -121,41 +123,7 @@ function FeaturedCard({ article }: { article: Article }) {
   );
 }
 
-function SecondaryCard({ article }: { article: Article }) {
-  const cat = catOf(article.category);
-  return (
-    <Link
-      href={`/article/${article.slug}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
-    >
-            <ArticleVisual
-        image={getImageUrl(article)}
-        title={article.title}
-        cat={cat}
-        className="h-28"
-        iconClassName="text-5xl"
-      />
-      <div className="flex flex-1 flex-col p-5">
-        <span
-          className="cat-chip self-start rounded-full px-2.5 py-0.5 text-[11px] font-bold"
-          style={toneStyle(cat.tone)}
-        >
-          {cat.name}
-        </span>
-        <h3 className="mt-3 line-clamp-2 text-lg font-bold leading-7 text-on-surface transition-colors group-hover:text-primary">
-          {article.title}
-        </h3>
-        <div className="mt-auto flex items-center gap-3 pt-3 text-[11px] text-on-surface-variant">
-          <span>{relativeTime(article.publishedAt)}</span>
-          <span className="flex items-center gap-1">
-            <Icon name="schedule" className="text-sm" />
-            {toPersianDigits(article.readTime)} دقیقه
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
+
 
 function LatestRow({ article }: { article: Article }) {
   const cat = catOf(article.category);
@@ -247,11 +215,9 @@ export const metadata = {
 export default async function HomePage() {
   const { featured, secondary, latest, trending } = await getHomePageData();
 
-  // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
 let recommended: Article[] = [];
 const user = await getCurrentUser();
-
 if (user) {
   try {
     const pb = await getServerPocketBase();
@@ -259,7 +225,7 @@ if (user) {
       interests?: string[];
     };
     if (fullUser.interests && fullUser.interests.length > 0) {
-      recommended = await getRecommendedArticles(fullUser.interests, 4);
+      recommended = await getRecommendedArticles(fullUser.interests, 10, 0);
     }
   } catch {
     recommended = [];
@@ -337,6 +303,47 @@ if (user) {
       {recommended.map((article) => (
         <SecondaryCard key={article.id} article={article} />
       ))}
+    </div>
+  </section>
+)}
+
+{/* پیشنهاد برای شما — Carousel */}
+{recommended.length > 0 && (
+  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+    <div className="flex items-center justify-between gap-3">
+      <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
+      <Link
+        href="/for-you"
+        className="inline-flex items-center gap-1.5 rounded-full bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container transition-all hover:shadow-1 active:scale-95"
+      >
+        مشاهده بیشتر
+        <Icon name="arrow_back" mirror className="text-base" />
+      </Link>
+    </div>
+
+    {/* Carousel Container */}
+    <div className="mt-6 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <div className="flex gap-5 snap-x snap-mandatory pb-4 md:grid md:grid-cols-4 md:snap-none md:overflow-visible">
+        {recommended.slice(0, 10).map((article) => (
+          <div
+            key={article.id}
+            className="w-[280px] shrink-0 snap-center md:w-auto"
+          >
+            <SecondaryCard article={article} />
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* دکمه مشاهده بیشتر (موبایل) */}
+    <div className="mt-4 flex justify-center md:hidden">
+      <Link
+        href="/for-you"
+        className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-1 transition-all hover:shadow-2 hover:brightness-110 active:scale-95"
+      >
+        <Icon name="auto_awesome" className="text-lg" />
+        مشاهده همه پیشنهادها
+      </Link>
     </div>
   </section>
 )}

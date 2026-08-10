@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 export type IconName =
+  | 'refresh'   // ← اضافه شد
   | 'search'
   | 'auto_awesome'   // ← اضافه شد
   | 'menu'
