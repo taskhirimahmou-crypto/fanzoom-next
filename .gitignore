@@ -1,60 +1,50 @@
-```gitignore
+```
 # Dependencies
 node_modules/
 .pnpm-store/
 .yarn/
-.yarn-cache/
+.yarnrc.yml
 
 # Build outputs
+.next/
 dist/
 build/
-.next/
 out/
-public/build/
+public/dist/
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment variables
-.env
 .env.local
-.env.*
-!.env.example
+.env.development.local
+.env.test.local
+.env.production.local
+.env
 
-# IDE specific
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS generated
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-selfcheck.json
-*.so
-.coverage
+# Coverage directory used by tools like istanbul
 coverage/
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.tox/
-```
+.nyc_output/
 
-Wait, I need to reconsider. The only modified file is `src/app/layout.tsx`, which is a TypeScript/React component file. Looking at the change list, there are no build artifacts, dependency directories, or temporary files mentioned - just a single source code file modification.
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
 
-Since there are no build artifacts, dependencies, or temp files in the changes, and only a source code file was modified, the .gitignore should remain empty.
-
-```gitignore
-
+# TypeScript cache
+*.tsbuildinfo
 ```

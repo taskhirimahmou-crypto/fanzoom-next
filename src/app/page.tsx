@@ -44,7 +44,7 @@ function FeaturedCard({ article }: { article: Article }) {
           cat={cat}
           className="h-56 md:h-72"
           iconClassName="text-8xl"
-          priority
+          priority={true}
         />
         <span
           className="cat-chip absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold"

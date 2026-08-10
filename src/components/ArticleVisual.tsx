@@ -44,8 +44,9 @@ export function ArticleVisual({ image, title, cat, className, iconClassName, pri
           src={image}
           alt={title}
           fill
-          sizes="(max-width: 768px) 100vw, 33vw"
-          loading={priority ? 'eager' : 'lazy'}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={priority}
+          fetchPriority={priority ? 'high' : undefined}
           className="object-cover transition-transform duration-500 ease-decelerate group-hover:scale-105"
         />
       </div>
@@ -59,6 +60,7 @@ export function ArticleVisual({ image, title, cat, className, iconClassName, pri
         src={image}
         alt={title}
         loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         className="h-full w-full object-cover transition-transform duration-500 ease-decelerate group-hover:scale-105"
       />
     </div>

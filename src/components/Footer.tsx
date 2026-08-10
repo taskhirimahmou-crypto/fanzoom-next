@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Icon, type IconName } from '@/components/Icon';
 import { mainNavCategories } from '@/lib/categories';
 
@@ -27,9 +28,12 @@ export function Footer() {
           {/* برند */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <img
+              <Image
                 src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
                 alt="فن زوم"
+                width={36}
+                height={36}
+                priority={false}
                 className="h-9 w-9 rounded-xl object-cover shadow-1"
               />
               <span className="text-lg font-black text-on-surface">فن زوم</span>
