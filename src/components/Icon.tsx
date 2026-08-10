@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 
 export type IconName =
   | 'search'
+  | 'auto_awesome'   // ← اضافه شد
   | 'menu'
   | 'close'
   | 'dark_mode'

@@ -198,3 +198,27 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
     return [];
   }
 }
+// ── مقالات پیشنهادی بر اساس علاقه‌مندی‌های کاربر ──
+export const getRecommendedArticles = async (
+  interests: string[],
+  limit = 4
+): Promise<Article[]> => {
+  if (!interests || interests.length === 0) return [];
+
+  const fetcher = unstable_cache(
+    async (cats: string[]) => {
+      const pb = getPocketBase();
+      const items = await pb.collection('articles').getList(1, limit, {
+        filter: pb.filter('status = "published" && category in {:categories}', {
+          categories: cats,
+        }),
+        sort: '-publishedAt',
+      });
+      return items.items.map((i) => resolveImage(i as unknown as Article));
+    },
+    ['recommended-articles', ...interests],
+    { revalidate: 300 } // کش ۵ دقیقه
+  );
+
+  return fetcher(interests);
+};

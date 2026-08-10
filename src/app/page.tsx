@@ -3,6 +3,9 @@ import { ArticleVisual } from '@/components/ArticleVisual';
 import type { CSSProperties } from 'react';
 import { Icon, type IconName } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
+import { getServerPocketBase } from '@/lib/auth-cookies';
+import { cache } from 'react';
+import { getRecommendedArticles } from '@/lib/articles-server';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
@@ -39,6 +42,16 @@ const homeJsonLd = {
     },
   ],
 };
+
+const getCurrentUser = cache(async () => {
+  const pb = await getServerPocketBase();
+  const record = pb.authStore.record as
+    | { id: string; email: string; displayName?: string }
+    | null;
+  return record
+    ? { id: record.id, email: record.email, displayName: record.displayName }
+    : null;
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -234,6 +247,23 @@ export const metadata = {
 export default async function HomePage() {
   const { featured, secondary, latest, trending } = await getHomePageData();
 
+  // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
+  let recommended: Article[] = [];
+  const user = await getCurrentUser();
+  if (user) {
+    try {
+      const pb = await getServerPocketBase();
+      const fullUser = (await pb.collection('users').getOne(user.id)) as {
+        interests?: string[];
+      };
+      if (fullUser.interests && fullUser.interests.length > 0) {
+        recommended = await getRecommendedArticles(fullUser.interests, 4);
+      }
+    } catch {
+      recommended = [];
+    }
+  }
+
   const featuredArticle = featured ?? latest[0] ?? null;
   const secondaryArticles = featured ? secondary : latest.slice(1, 3);
   const breakingNews = latest.map((a) => a.title);
@@ -291,6 +321,18 @@ export default async function HomePage() {
           </Reveal>
         ))}
       </div>
+    </div>
+  </section>
+)}
+
+{/* پیشنهاد برای شما — فقط برای کاربر لاگین‌شده با علاقه‌مندی */}
+{recommended.length > 0 && (
+  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+    <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
+    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {recommended.map((article) => (
+        <SecondaryCard key={article.id} article={article} />
+      ))}
     </div>
   </section>
 )}
