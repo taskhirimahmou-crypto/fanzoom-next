@@ -308,46 +308,7 @@ if (user) {
   </section>
 )}
 
-{/* پیشنهاد برای شما — Carousel */}
-{recommended.length > 0 && (
-  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-    <div className="flex items-center justify-between gap-3">
-      <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
-      <Link
-        href="/for-you"
-        className="inline-flex items-center gap-1.5 rounded-full bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container transition-all hover:shadow-1 active:scale-95"
-      >
-        مشاهده بیشتر
-        <Icon name="arrow_back" mirror className="text-base" />
-      </Link>
-    </div>
 
-    {/* Carousel Container */}
-    <div className="mt-6 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <div className="flex gap-5 snap-x snap-mandatory pb-4 md:grid md:grid-cols-4 md:snap-none md:overflow-visible">
-        {recommended.slice(0, 10).map((article) => (
-          <div
-            key={article.id}
-            className="w-[280px] shrink-0 snap-center md:w-auto"
-          >
-            <SecondaryCard article={article} />
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* دکمه مشاهده بیشتر (موبایل) */}
-    <div className="mt-4 flex justify-center md:hidden">
-      <Link
-        href="/for-you"
-        className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-1 transition-all hover:shadow-2 hover:brightness-110 active:scale-95"
-      >
-        <Icon name="auto_awesome" className="text-lg" />
-        مشاهده همه پیشنهادها
-      </Link>
-    </div>
-  </section>
-)}
 
       {/* آخرین اخبار + داغ‌ترین‌ها */}
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
