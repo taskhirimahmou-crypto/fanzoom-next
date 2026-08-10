@@ -256,3 +256,4 @@ export const getRecommendedArticles = async (
   const pool = await getRecommendedPool(interests);
   return pool.slice(offset, offset + limit);
 };
+

@@ -11,6 +11,7 @@ import { getHomePageData, type Article } from '@/lib/articles-server';
 import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 import { SecondaryCard } from '@/components/SecondaryCard';
+import { RecommendedCarousel } from '@/components/RecommendedCarousel';
 
 
 const homeJsonLd = {
@@ -321,30 +322,9 @@ if (user) {
       </Link>
     </div>
 
-    {/* Carousel Container */}
-    <div className="mt-6 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <div className="flex gap-5 snap-x snap-mandatory pb-4 md:grid md:grid-cols-4 md:snap-none md:overflow-visible">
-        {recommended.slice(0, 10).map((article) => (
-          <div
-            key={article.id}
-            className="w-[280px] shrink-0 snap-center md:w-auto"
-          >
-            <SecondaryCard article={article} />
-          </div>
-        ))}
-      </div>
-    </div>
+    <RecommendedCarousel articles={recommended.slice(0, 10)} />
 
-    {/* دکمه مشاهده بیشتر (موبایل) */}
-    <div className="mt-4 flex justify-center md:hidden">
-      <Link
-        href="/for-you"
-        className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-1 transition-all hover:shadow-2 hover:brightness-110 active:scale-95"
-      >
-        <Icon name="auto_awesome" className="text-lg" />
-        مشاهده همه پیشنهادها
-      </Link>
-    </div>
+
   </section>
 )}
 
