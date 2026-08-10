@@ -257,18 +257,16 @@ export default async function ArticlePage({ params }: Props) {
         </Reveal>
 
         {/* محتوای مقاله */}
-        <Reveal delay={320}>
-          <div
-            className="article-content mt-10"
-            dangerouslySetInnerHTML={{ __html: sanitizeContent(article.content) }}
-          />
-                  <ReadingTracker articleId={article.id} signedIn={!!userId} />
-                  <CommentsSection
+        <div
+          className="article-content mt-10"
+          dangerouslySetInnerHTML={{ __html: sanitizeContent(article.content) }}
+        />
+        <ReadingTracker articleId={article.id} signedIn={!!userId} />
+        <CommentsSection
           articleId={article.id}
           signedIn={!!userId}
           comments={comments}
         />
-        </Reveal>
 
         {/* مقالات مرتبط */}
         {related.length > 0 && (
