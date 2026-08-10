@@ -297,16 +297,7 @@ if (user) {
 
 {/* پیشنهاد برای شما — فقط برای کاربر لاگین‌شده با علاقه‌مندی */}
 
-{recommended.length > 0 && (
-  <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-    <SectionTitle icon="auto_awesome" title="پیشنهاد برای شما" />
-    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-      {recommended.map((article) => (
-        <SecondaryCard key={article.id} article={article} />
-      ))}
-    </div>
-  </section>
-)}
+
 
 
 
