@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import PocketBase from 'pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
 
+const OAUTH_COOKIE = 'google_oauth';
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
@@ -10,12 +12,30 @@ export async function GET(req: Request) {
   const googleError = url.searchParams.get('error');
 
   const store = await cookies();
-  const savedState = store.get('oauth_state')?.value;
-  const home = url.origin;
+  const oauthCookie = store.get(OAUTH_COOKIE)?.value;
+  const appUrl = process.env.APP_URL || url.origin;
+  const redirectUrl = new URL('/api/auth/google/callback', appUrl).toString();
+  const home = new URL('/', appUrl).toString();
+
+  let oauth: { state: string; codeVerifier: string } | undefined;
+  try {
+    oauth = oauthCookie ? JSON.parse(oauthCookie) : undefined;
+  } catch {
+    oauth = undefined;
+  }
 
   // گارد: بدون code یا state نامعتبر → هرگز به authWithOAuth2 نرسیم
-  if (googleError || !code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(`${home}/login`);
+  if (
+    googleError ||
+    !code ||
+    !state ||
+    !oauth?.state ||
+    !oauth.codeVerifier ||
+    state !== oauth.state
+  ) {
+    const response = NextResponse.redirect(new URL('/login', home));
+    response.cookies.delete(OAUTH_COOKIE);
+    return response;
   }
 
   try {
@@ -24,14 +44,12 @@ export async function GET(req: Request) {
     );
 
     // تبادل code — فقط با code معتبر
-    const auth = await pb.collection('users').authWithOAuth2({
-      provider: 'google',
-      code,
-      redirectUrl: `${home}/api/auth/google/callback`,
-    });
+    const auth = await pb
+      .collection('users')
+      .authWithOAuth2Code('google', code, oauth.codeVerifier, redirectUrl);
 
     // کوکی با همان قرارداد route لاگین (JSON شامل token+record)
-    const res = NextResponse.redirect(`${home}/`);
+    const res = NextResponse.redirect(home);
     res.cookies.set(
       AUTH_COOKIE,
       JSON.stringify({ token: auth.token, record: auth.record }),
@@ -43,10 +61,12 @@ export async function GET(req: Request) {
         maxAge: 60 * 60 * 24 * 30,
       }
     );
-    res.cookies.delete('oauth_state');
+    res.cookies.delete(OAUTH_COOKIE);
     return res;
   } catch (e) {
     console.error('🔴 Google OAuth error:', e);
-    return NextResponse.redirect(`${home}/login`);
+    const response = NextResponse.redirect(new URL('/login', home));
+    response.cookies.delete(OAUTH_COOKIE);
+    return response;
   }
 }
