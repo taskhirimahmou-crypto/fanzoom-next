@@ -1,34 +1,20 @@
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import type { CSSProperties } from 'react';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getCurrentUser } from '@/lib/auth-cookies';
 import { Icon } from '@/components/Icon';
 import { InterestsPicker } from '@/components/InterestsPicker';
 import { LogoutButton } from '@/components/LogoutButton';
-import { findCategoryBySlug } from '@/lib/categories';
 
 export const metadata: Metadata = { title: 'پروفایل من' };
 
-const toneStyle = (tone: string) =>
-  ({ '--c': `var(--cat-${tone})` }) as CSSProperties;
-
 export default async function ProfilePage() {
-  const pb = await getServerPocketBase();
-  const record = pb.authStore.record as {
-    id: string;
-    email: string;
-    displayName?: string;
-    bio?: string;
-    interests?: string[];
-    created: string;
-  } | null;
-
-  // اگر لاگین نیست، به صفحه‌ی ورود برو
-  if (!record) redirect('/login');
+  const auth = await getCurrentUser();
+  if (!auth) redirect('/login');
+  const { pb, user: record } = auth;
   // record تازه و کامل از PocketBase (authStore فقط فیلدهای پایه را دارد)
-const freshUser = (await pb.collection('users').getOne(record.id)) as {
-  interests?: string[];
-};
+  const freshUser = (await pb.collection('users').getOne(record.id)) as {
+    interests?: string[];
+  };
 
   const initial = (record.displayName || record.email || 'ک')[0];
   const memberSince = new Date(record.created).toLocaleDateString('fa-IR', {
@@ -79,11 +65,10 @@ const freshUser = (await pb.collection('users').getOne(record.id)) as {
           </p>
         </div>
 
-        {/* علایق */}
-    {/* علاقه‌مندی‌ها — Interactive Picker */}
-<div className="mt-6">
-<InterestsPicker initialInterests={freshUser.interests ?? []} />
-</div>
+        {/* علاقه‌مندی‌ها — Interactive Picker */}
+        <div className="mt-6">
+          <InterestsPicker initialInterests={freshUser.interests ?? []} />
+        </div>
 
         {/* حساب */}
         <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 shadow-1 sm:flex-row sm:items-center">

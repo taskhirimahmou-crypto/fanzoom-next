@@ -1,4 +1,4 @@
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getCurrentUser } from '@/lib/auth-cookies';
 import { getBookmarkedArticles } from '@/lib/articles-server';
 import { redirect } from 'next/navigation';
 import { ArticleVisual } from '@/components/ArticleVisual';
@@ -6,19 +6,11 @@ import Link from 'next/link';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 
 export default async function BookmarksPage() {
-  const pb = await getServerPocketBase();
-  const userId = pb.authStore.record?.id;
-  
-  console.log('🔍 BookmarksPage userId:', userId);
-  console.log('🔍 BookmarksPage isValid:', pb.authStore.isValid);
-  
-  if (!userId || !pb.authStore.isValid) {
+  const auth = await getCurrentUser();
+  if (!auth) {
     redirect('/login?redirect=/bookmarks');
   }
-  
-  const bookmarkedArticles = await getBookmarkedArticles(userId);
-  
-  console.log('🔍 BookmarksPage articles count:', bookmarkedArticles.length);
+  const bookmarkedArticles = await getBookmarkedArticles(auth.user.id);
   
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 md:px-6">

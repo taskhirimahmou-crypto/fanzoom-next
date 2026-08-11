@@ -1,25 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { requireUser } from '@/lib/auth-cookies';
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
   try {
     console.log('🔵 PATCH /api/profile/interests started');
 
-    const pb = await getServerPocketBase();
-    const record = pb.authStore.record as { id: string; email?: string } | null;
-    const model = pb.authStore.model as { collectionName?: string } | null;
-
-    console.log('🔵 Auth record:', record?.id || 'null');
-    console.log('🔵 Auth model:', model?.collectionName || 'null');
-
-    // فقط کاربران عادی (نه superuser)
-    if (!record || model?.collectionName !== 'users') {
-      console.log('🔴 Unauthorized: not a regular user');
-      return NextResponse.json(
-        { error: 'ابتدا با حساب کاربری وارد شوید' },
-        { status: 401 }
-      );
-    }
+    const { pb, user: record } = auth;
 
     const { interests } = await req.json();
     console.log('🔵 Received interests:', interests);

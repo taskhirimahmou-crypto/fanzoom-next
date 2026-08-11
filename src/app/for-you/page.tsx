@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getCurrentUser } from '@/lib/auth-cookies';
 import { getRecommendedArticles } from '@/lib/articles-server';
 import { ForYouClient } from '@/components/ForYouClient';
-import { SectionTitle } from '@/components/SectionTitle';
 import { Icon } from '@/components/Icon';
 import type { Article } from '@/lib/articles-server';
 
@@ -13,16 +12,15 @@ export const metadata: Metadata = {
 };
 
 export default async function ForYouPage() {
-  const pb = await getServerPocketBase();
-  const record = pb.authStore.record as { id: string } | null;
-
-  if (!record) redirect('/login');
+  const auth = await getCurrentUser();
+  if (!auth) redirect('/login');
+  const { pb, user: record } = auth;
 
   const fullUser = (await pb.collection('users').getOne(record.id)) as {
     interests?: string[];
   };
 
-let articles: Article[] = [];
+  let articles: Article[] = [];
   if (fullUser.interests && fullUser.interests.length > 0) {
     articles = await getRecommendedArticles(fullUser.interests, 10, 0);
   }

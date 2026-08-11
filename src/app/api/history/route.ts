@@ -1,12 +1,13 @@
 // src/app/api/history/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { requireUser } from '@/lib/auth-cookies';
 
 // ثبت یا به‌روزرسانی «آخرین مطالعه» (upsert دستی)
 export async function POST(req: NextRequest) {
-  const pb = await getServerPocketBase();
-  const uid = pb.authStore.record?.id;
-  if (!uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { pb } = auth;
+  const uid = auth.user.id;
 
   const { articleId } = await req.json();
   if (!articleId) return NextResponse.json({ error: 'no article' }, { status: 400 });
@@ -34,9 +35,10 @@ export async function POST(req: NextRequest) {
 
 // حذف یک مقاله از تاریخچه
 export async function DELETE(req: NextRequest) {
-  const pb = await getServerPocketBase();
-  const uid = pb.authStore.record?.id;
-  if (!uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { pb } = auth;
+  const uid = auth.user.id;
 
   const { articleId } = await req.json();
   if (!articleId) return NextResponse.json({ error: 'no article' }, { status: 400 });
