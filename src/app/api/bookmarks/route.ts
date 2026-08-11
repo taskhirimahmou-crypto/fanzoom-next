@@ -1,20 +1,19 @@
 // src/app/api/bookmarks/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { requireUser } from '@/lib/auth-cookies';
 
 // افزودن به نشان‌شده‌ها
 export async function POST(req: NextRequest) {
-  const pb = await getServerPocketBase();
-  if (!pb.authStore.record) {
-    return NextResponse.json({ error: 'ابتدا وارد شوید' }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { pb, user } = auth;
   const { articleId } = await req.json();
   if (!articleId) {
     return NextResponse.json({ error: 'articleId الزامی است' }, { status: 400 });
   }
   try {
     await pb.collection('bookmarks').create({
-      user: pb.authStore.record.id,
+      user: user.id,
       article: articleId,
     });
     return NextResponse.json({ ok: true, bookmarked: true });
@@ -25,15 +24,14 @@ export async function POST(req: NextRequest) {
 
 // حذف از نشان‌شده‌ها
 export async function DELETE(req: NextRequest) {
-  const pb = await getServerPocketBase();
-  if (!pb.authStore.record) {
-    return NextResponse.json({ error: 'ابتدا وارد شوید' }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { pb, user } = auth;
   const { articleId } = await req.json();
   try {
     const bm = await pb.collection('bookmarks').getFirstListItem(
       pb.filter('user = {:uid} && article = {:aid}', {
-        uid: pb.authStore.record.id,
+        uid: user.id,
         aid: articleId,
       }),
     );

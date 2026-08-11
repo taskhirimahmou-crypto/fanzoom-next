@@ -1,31 +1,106 @@
-// src/lib/auth-cookies.ts
 import { cookies } from 'next/headers';
-import PocketBase from 'pocketbase';
+import { NextResponse } from 'next/server';
+import PocketBase, { ClientResponseError, type RecordModel } from 'pocketbase';
 
 export const AUTH_COOKIE = 'pb_auth';
+const USER_COLLECTION = 'users';
+
+export type AuthUser = RecordModel & {
+  id: string;
+  email: string;
+  displayName?: string;
+  bio?: string;
+  interests?: string[];
+  created: string;
+};
+
+export type AuthContext = {
+  pb: PocketBase;
+  user: AuthUser;
+};
+
+export type RequireUserResult =
+  | ({ ok: true } & AuthContext)
+  | { ok: false; response: NextResponse };
+
+function isUserRecord(record: RecordModel | null): record is AuthUser {
+  return (
+    record?.collectionName === USER_COLLECTION &&
+    typeof record.id === 'string' &&
+    record.id.length > 0
+  );
+}
+
+function isRejectedSession(error: unknown) {
+  return (
+    error instanceof ClientResponseError &&
+    (error.status === 401 || error.status === 403)
+  );
+}
 
 /**
- * PocketBase instance برای server componentها —
- * اگر کاربر لاگین باشد، توکن را از کوکی می‌خواند و
- * با authRefresh اطلاعات کاربر (record) را هم از سرور می‌گیرد.
+ * Imports the request session, rejects locally expired/wrong-collection sessions,
+ * and refreshes otherwise. Connectivity and other PocketBase failures propagate so
+ * callers don't mistake an unavailable backend for a logged-out user.
  */
 export async function getServerPocketBase() {
-  const url = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
+  const url =
+    process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
   const pb = new PocketBase(url);
-  
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get(AUTH_COOKIE);
-  
-  if (authCookie?.value) {
-    try {
-      const { token, record } = JSON.parse(authCookie.value);
-      if (token && record) {
-        pb.authStore.save(token, record);
-      }
-    } catch (err) {
-      console.warn('🔴 Failed to parse auth cookie:', err);
-    }
+  const authCookie = (await cookies()).get(AUTH_COOKIE)?.value;
+
+  if (!authCookie) return pb;
+
+  try {
+    pb.authStore.loadFromCookie(`${AUTH_COOKIE}=${authCookie}`, AUTH_COOKIE);
+  } catch {
+    pb.authStore.clear();
+    return pb;
   }
-  
+
+  // Never send an already expired token (or a token for another auth collection)
+  // to the refresh endpoint.
+  if (!pb.authStore.isValid || !isUserRecord(pb.authStore.record)) {
+    pb.authStore.clear();
+    return pb;
+  }
+
+  try {
+    await pb.collection(USER_COLLECTION).authRefresh();
+  } catch (error) {
+    if (!isRejectedSession(error)) throw error;
+    pb.authStore.clear();
+    return pb;
+  }
+
+  if (!pb.authStore.isValid || !isUserRecord(pb.authStore.record)) {
+    pb.authStore.clear();
+  }
+
   return pb;
+}
+
+/** Reads a validated, freshly refreshed user for Server Components. */
+export async function getCurrentUser(): Promise<AuthContext | null> {
+  const pb = await getServerPocketBase();
+  const user = pb.authStore.record;
+
+  if (!pb.authStore.isValid || !isUserRecord(user)) return null;
+  return { pb, user };
+}
+
+/**
+ * Auth guard for Route Handlers. Its unauthorized response owns the Set-Cookie
+ * header, allowing stale or malformed sessions to be removed by the browser.
+ */
+export async function requireUser(): Promise<RequireUserResult> {
+  const auth = await getCurrentUser();
+  if (auth) return { ok: true, ...auth };
+
+  const response = NextResponse.json(
+    { error: 'ابتدا با حساب کاربری وارد شوید' },
+    { status: 401 },
+  );
+  response.cookies.delete(AUTH_COOKIE);
+  return { ok: false, response };
 }
