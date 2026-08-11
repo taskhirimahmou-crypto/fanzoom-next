@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const savedState = store.get('oauth_state')?.value;
   const home = url.origin;
 
+  // گارد: بدون code یا state نامعتبر → هرگز به authWithOAuth2 نرسیم
   if (googleError || !code || !state || !savedState || state !== savedState) {
     return NextResponse.redirect(`${home}/login`);
   }
@@ -22,14 +23,14 @@ export async function GET(req: Request) {
       process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
     );
 
-    // تبادل code با توکن — code حتماً پاس داده می‌شود تا SDK وارد حالت مرورگری نشود
+    // تبادل code — فقط با code معتبر
     const auth = await pb.collection('users').authWithOAuth2({
       provider: 'google',
       code,
       redirectUrl: `${home}/api/auth/google/callback`,
     });
 
-    // کوکی با همان قرارداد route لاگین (JSON شامل token و record)
+    // کوکی با همان قرارداد route لاگین (JSON شامل token+record)
     const res = NextResponse.redirect(`${home}/`);
     res.cookies.set(
       AUTH_COOKIE,
