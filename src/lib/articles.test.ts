@@ -81,9 +81,9 @@ describe('getImageUrl', () => {
     expect(getImageUrl({ id: '123', image: 'test.jpg' })).toBe('https://pb.example.com/api/files/articles/123/test.jpg');
   });
 
-  it('should construct URL with default localhost when env is not set', () => {
+  it('should construct URL with the default Fanzoom backend when env is not set', () => {
     delete process.env.NEXT_PUBLIC_POCKETBASE_URL;
-    expect(getImageUrl({ id: '123', image: 'test.jpg' })).toBe('http://127.0.0.1:8090/api/files/articles/123/test.jpg');
+    expect(getImageUrl({ id: '123', image: 'test.jpg' })).toBe('https://my-backend-fanzoom.liara.run/api/files/articles/123/test.jpg');
   });
 });
 

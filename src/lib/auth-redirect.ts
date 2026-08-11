@@ -1,4 +1,5 @@
 const DEFAULT_REDIRECT = '/';
+const DEFAULT_APP_URL = 'https://fanzoom.ir';
 
 export function safeRedirectPath(value: string | null | undefined) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) {
@@ -16,13 +17,11 @@ export function safeRedirectPath(value: string | null | undefined) {
 }
 
 export function getAppUrl(requestOrigin: string) {
-  const configured = process.env.APP_URL;
-  if (!configured) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('APP_URL must be configured in production');
-    }
-    return new URL(requestOrigin).origin;
-  }
+  const configured = process.env.APP_URL?.trim();
+  if (!configured)
+    return process.env.NODE_ENV === 'production'
+      ? DEFAULT_APP_URL
+      : new URL(requestOrigin).origin;
 
   return new URL(configured).origin;
 }

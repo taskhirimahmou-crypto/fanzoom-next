@@ -7,6 +7,7 @@ import {
   serializeAuthCookie,
 } from '@/lib/auth-cookies';
 import { getAppUrl, safeRedirectPath } from '@/lib/auth-redirect';
+import { getPocketBaseUrl } from '@/lib/pocketbase-url';
 
 const OAUTH_COOKIE = 'google_oauth';
 
@@ -61,9 +62,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const pb = new PocketBase(
-      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
-    );
+    const pb = new PocketBase(getPocketBaseUrl());
 
     // تبادل code — فقط با code معتبر
     const auth = await pb

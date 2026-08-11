@@ -1,8 +1,6 @@
 // src/lib/pocketbase.ts
 import PocketBase from 'pocketbase';
-
-const POCKETBASE_URL =
-  process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
+import { getPocketBaseUrl } from './pocketbase-url';
 
 /**
  * یک instance تازه‌ی PocketBase برای هر درخواست (server-side).
@@ -10,7 +8,7 @@ const POCKETBASE_URL =
  * و auth token یا cache بین درخواست‌ها نشت نکند.
  */
 export function getPocketBase(): PocketBase {
-  const pb = new PocketBase(POCKETBASE_URL);
+  const pb = new PocketBase(getPocketBaseUrl());
   
   // افزایش timeout از 10s به 30s
   pb.autoCancellation(false);
