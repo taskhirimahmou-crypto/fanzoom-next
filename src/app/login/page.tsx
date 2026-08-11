@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/Icon';
+import Image from 'next/image';
 
 type Mode = 'login' | 'register';
 
@@ -89,9 +90,12 @@ export default function LoginPage() {
       <div className="flex items-center justify-center px-4 py-12 md:px-8">
         <div className="w-full max-w-md">
           <Link href="/" className="mb-10 flex items-center gap-2.5">
-            <img
-              src="https://my-backend-fanzoom.liara.run/api/files/pbc_2583489775/2396ehdiapcae16/photo_1l7rr5z7gw.jpg?token="
+            <Image
+              src="/logo.webp"
               alt="فن زوم"
+              width={40}
+              height={40}
+              priority
               className="h-10 w-10 rounded-xl object-cover shadow-1"
             />
             <span className="text-xl font-black text-on-surface">فن زوم</span>
