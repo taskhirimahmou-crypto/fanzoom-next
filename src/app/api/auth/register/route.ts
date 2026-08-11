@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPocketBase } from '@/lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
-import { AUTH_COOKIE } from '@/lib/auth-cookies';
+import { setAuthSessionCookie } from '@/lib/auth-cookies';
 
 export async function POST(req: NextRequest) {
   const { email, password, displayName } = await req.json();
@@ -25,13 +25,7 @@ export async function POST(req: NextRequest) {
 
     const auth = await pb.collection('users').authWithPassword(email, password);
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(AUTH_COOKIE, auth.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    setAuthSessionCookie(res.cookies, auth);
     return res;
   } catch (e: unknown) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

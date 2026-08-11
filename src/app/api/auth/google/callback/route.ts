@@ -1,52 +1,53 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import PocketBase from 'pocketbase';
-import { AUTH_COOKIE } from '@/lib/auth-cookies';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  OAUTH_STATE_COOKIE,
+  OAUTH_VERIFIER_COOKIE,
+  setAuthSessionCookie,
+} from '@/lib/auth-cookies';
+import { getPocketBase } from '@/lib/pocketbase';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const googleError = url.searchParams.get('error');
 
-  const store = await cookies();
-  const savedState = store.get('oauth_state')?.value;
+  const savedState = req.cookies.get(OAUTH_STATE_COOKIE)?.value;
+  const codeVerifier = req.cookies.get(OAUTH_VERIFIER_COOKIE)?.value;
   const home = url.origin;
 
+  const oauthFailureResponse = () => {
+    const response = NextResponse.redirect(`${home}/login?error=oauth_failed`);
+    response.cookies.delete(OAUTH_STATE_COOKIE);
+    response.cookies.delete(OAUTH_VERIFIER_COOKIE);
+    return response;
+  };
+
   // گارد: بدون code یا state نامعتبر → هرگز به authWithOAuth2 نرسیم
-  if (googleError || !code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(`${home}/login`);
+  if (googleError || !code || !state || !savedState || !codeVerifier || state !== savedState) {
+    return oauthFailureResponse();
   }
 
   try {
-    const pb = new PocketBase(
-      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
-    );
+    const pb = getPocketBase();
+    const redirectUrl = `${home}/api/auth/google/callback`;
 
     // تبادل code — فقط با code معتبر
-    const auth = await pb.collection('users').authWithOAuth2({
-      provider: 'google',
+    const auth = await pb.collection('users').authWithOAuth2Code(
+      'google',
       code,
-      redirectUrl: `${home}/api/auth/google/callback`,
-    });
+      codeVerifier,
+      redirectUrl
+    );
 
     // کوکی با همان قرارداد route لاگین (JSON شامل token+record)
     const res = NextResponse.redirect(`${home}/`);
-    res.cookies.set(
-      AUTH_COOKIE,
-      JSON.stringify({ token: auth.token, record: auth.record }),
-      {
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 60 * 60 * 24 * 30,
-      }
-    );
-    res.cookies.delete('oauth_state');
+    setAuthSessionCookie(res.cookies, auth);
+    res.cookies.delete(OAUTH_STATE_COOKIE);
+    res.cookies.delete(OAUTH_VERIFIER_COOKIE);
     return res;
   } catch (e) {
     console.error('🔴 Google OAuth error:', e);
-    return NextResponse.redirect(`${home}/login`);
+    return oauthFailureResponse();
   }
 }
