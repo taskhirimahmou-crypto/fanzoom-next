@@ -22,24 +22,14 @@ export async function GET(req: Request) {
       process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
     );
 
+    // تبادل code با توکن — code حتماً پاس داده می‌شود تا SDK وارد حالت مرورگری نشود
     const auth = await pb.collection('users').authWithOAuth2({
       provider: 'google',
       code,
       redirectUrl: `${home}/api/auth/google/callback`,
     });
 
-    // کاربر جدید گوگل: اگر displayName خالی بود، نام گوگل را بگذار
-    try {
-      const rec = auth.record as { id: string; displayName?: string; name?: string };
-      if (rec && !rec.displayName && rec.name) {
-        await pb.collection('users').update(rec.id, { displayName: rec.name });
-        (auth.record as { displayName?: string }).displayName = rec.name;
-      }
-    } catch {
-      // غیرحیاتی — اگر نشد، بی‌خیال
-    }
-
-    // ست کردن کوکی با همان قرارداد route لاگین (JSON شامل token+record)
+    // کوکی با همان قرارداد route لاگین (JSON شامل token و record)
     const res = NextResponse.redirect(`${home}/`);
     res.cookies.set(
       AUTH_COOKIE,
