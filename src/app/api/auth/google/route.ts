@@ -1,36 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 
 export async function GET(req: NextRequest) {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  if (!clientId) {
-    return NextResponse.json(
-      { error: 'تنظیمات گوگل کامل نیست (Client ID)' },
-      { status: 500 }
+  try {
+    const pb = await getServerPocketBase();
+    
+    // PocketBase URL redirect را می‌سازد
+    const authUrl = pb.buildUrl('/api/oauth2-redirect');
+    
+    // Redirect به Google OAuth (PocketBase خودش مدیریت می‌کند)
+    return NextResponse.redirect(
+      `${pb.baseUrl}/api/oauth2-redirect?provider=google`
     );
+  } catch (error) {
+    console.error('🔴 Google OAuth error:', error);
+    return NextResponse.redirect(new URL('/login?error=oauth_failed', req.url));
   }
-
-  const state = randomBytes(16).toString('hex');
-  const redirectUri = `${req.nextUrl.origin}/api/auth/google/callback`;
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'openid email profile',
-    state,
-    prompt: 'select_account',
-  });
-
-  const res = NextResponse.redirect(
-    `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  );
-  res.cookies.set('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 600,
-  });
-  return res;
 }
