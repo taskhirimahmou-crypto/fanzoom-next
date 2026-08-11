@@ -205,11 +205,6 @@ export default function LoginPage() {
 
 <GoogleLoginButton />
 
-<div className="relative my-6 flex items-center">
-  <div className="flex-grow border-t border-outline-variant/60"></div>
-  <span className="mx-4 flex-shrink text-xs text-on-surface-variant">یا</span>
-  <div className="flex-grow border-t border-outline-variant/60"></div>
-</div>
 
 {/* فرم لاگین معمولی خودت اینجا ادامه می‌یابد */}
         </div>
