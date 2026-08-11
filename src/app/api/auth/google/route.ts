@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getAppUrl, safeRedirectPath } from '@/lib/auth-redirect';
 
 const OAUTH_COOKIE = 'google_oauth';
 const OAUTH_COOKIE_MAX_AGE = 60 * 5;
 
 export async function GET(req: NextRequest) {
+  let appUrl: string;
+  try {
+    appUrl = getAppUrl(req.nextUrl.origin);
+  } catch (error) {
+    console.error('🔴 Google OAuth configuration error:', error);
+    return NextResponse.json(
+      { error: 'Google OAuth is not configured' },
+      { status: 500 },
+    );
+  }
+
   try {
     const pb = await getServerPocketBase();
     const authMethods = await pb.collection('users').listAuthMethods();
@@ -16,7 +28,7 @@ export async function GET(req: NextRequest) {
       throw new Error('Google OAuth is not enabled for the users collection');
     }
 
-    const appUrl = process.env.APP_URL || req.nextUrl.origin;
+    const returnTo = safeRedirectPath(req.nextUrl.searchParams.get('redirect'));
     const redirectUrl = new URL('/api/auth/google/callback', appUrl).toString();
     const authorizationUrl = new URL(google.authURL);
     authorizationUrl.searchParams.set('redirect_uri', redirectUrl);
@@ -24,7 +36,11 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.redirect(authorizationUrl);
     response.cookies.set(
       OAUTH_COOKIE,
-      JSON.stringify({ state: google.state, codeVerifier: google.codeVerifier }),
+      JSON.stringify({
+        state: google.state,
+        codeVerifier: google.codeVerifier,
+        returnTo,
+      }),
       {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -37,6 +53,8 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error('🔴 Google OAuth error:', error);
-    return NextResponse.redirect(new URL('/login?error=oauth_failed', req.url));
+    const loginUrl = new URL('/login', appUrl);
+    loginUrl.searchParams.set('error', 'oauth_configuration');
+    return NextResponse.redirect(loginUrl);
   }
 }

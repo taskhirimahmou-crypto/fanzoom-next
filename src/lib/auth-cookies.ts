@@ -3,7 +3,19 @@ import { NextResponse } from 'next/server';
 import PocketBase, { ClientResponseError, type RecordModel } from 'pocketbase';
 
 export const AUTH_COOKIE = 'pb_auth';
+export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+export const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: AUTH_COOKIE_MAX_AGE,
+};
 const USER_COLLECTION = 'users';
+
+export function serializeAuthCookie(token: string, record: RecordModel) {
+  return JSON.stringify({ token, record });
+}
 
 export type AuthUser = RecordModel & {
   id: string;

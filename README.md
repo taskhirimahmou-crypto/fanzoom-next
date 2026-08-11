@@ -6,6 +6,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Copy `.env.example` to `.env.local` and configure the canonical application and
+PocketBase URLs. In production, `APP_URL` is required so OAuth callbacks never
+depend on a forwarded request host.
+
+Enable Google OAuth for the PocketBase `users` collection and register this exact
+redirect URI in the provider configuration:
+
+```text
+${APP_URL}/api/auth/google/callback
+```
+
 First, run the development server:
 
 ```bash
