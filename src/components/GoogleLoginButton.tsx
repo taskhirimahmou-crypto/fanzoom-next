@@ -1,44 +1,9 @@
 'use client';
-import PocketBase from 'pocketbase';
-import { useRouter } from 'next/navigation';
 
 export function GoogleLoginButton() {
-  const router = useRouter();
-
-  const handleGoogleLogin = async () => {
-    const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'https://my-backend-fanzoom.liara.run';
-    const pb = new PocketBase(pbUrl);
-    
-    try {
-      // باز کردن پاپ‌آپ گوگل و دریافت توکن
-      await pb.collection('users').authWithOAuth2({ provider: 'google' });
-      
-      // ارسال توکن به سرور Next.js برای ست کردن کوکی امن
-      const res = await fetch('/api/auth/set-cookie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: pb.authStore.token,
-          model: pb.authStore.model,
-        }),
-      });
-      
-      if (res.ok) {
-        router.push('/');
-        router.refresh();
-      } else {
-        alert('خطا در ثبت کوکی ورود');
-      }
-    } catch (error) {
-      console.error('Google login error:', error);
-      // اگر کاربر پاپ‌آپ را بست یا خطایی رخ داد
-    }
-  };
-
   return (
-    <button
-      type="button"
-      onClick={handleGoogleLogin}
+    <a
+      href="/api/auth/google"
       className="flex w-full items-center justify-center gap-3 rounded-xl border border-outline-variant bg-surface-container py-3 text-sm font-bold text-on-surface transition-all hover:bg-surface-container-high active:scale-95"
     >
       <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -48,6 +13,6 @@ export function GoogleLoginButton() {
         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
       </svg>
       ورود با گوگل
-    </button>
+    </a>
   );
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import PocketBase from 'pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
+import { getAppUrl, getGoogleCallbackUrl } from '@/lib/app-env';
+import { getPocketBase } from '@/lib/pocketbase';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -11,27 +12,28 @@ export async function GET(req: Request) {
 
   const store = await cookies();
   const savedState = store.get('oauth_state')?.value;
-  const home = url.origin;
+  const codeVerifier = store.get('oauth_code_verifier')?.value;
+  const appUrl = getAppUrl();
+  const callbackUrl = getGoogleCallbackUrl();
 
   // گارد: بدون code یا state نامعتبر → هرگز به authWithOAuth2 نرسیم
-  if (googleError || !code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(`${home}/login`);
+  if (googleError || !code || !state || !savedState || !codeVerifier || state !== savedState) {
+    return NextResponse.redirect(new URL('/login', appUrl));
   }
 
   try {
-    const pb = new PocketBase(
-      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
-    );
+    const pb = getPocketBase();
 
     // تبادل code — فقط با code معتبر
-    const auth = await pb.collection('users').authWithOAuth2({
-      provider: 'google',
+    const auth = await pb.collection('users').authWithOAuth2Code(
+      'google',
       code,
-      redirectUrl: `${home}/api/auth/google/callback`,
-    });
+      codeVerifier,
+      callbackUrl,
+    );
 
     // کوکی با همان قرارداد route لاگین (JSON شامل token+record)
-    const res = NextResponse.redirect(`${home}/`);
+    const res = NextResponse.redirect(new URL('/', appUrl));
     res.cookies.set(
       AUTH_COOKIE,
       JSON.stringify({ token: auth.token, record: auth.record }),
@@ -44,9 +46,10 @@ export async function GET(req: Request) {
       }
     );
     res.cookies.delete('oauth_state');
+    res.cookies.delete('oauth_code_verifier');
     return res;
   } catch (e) {
     console.error('🔴 Google OAuth error:', e);
-    return NextResponse.redirect(`${home}/login`);
+    return NextResponse.redirect(new URL('/login', appUrl));
   }
 }

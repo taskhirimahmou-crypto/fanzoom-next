@@ -1,19 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { NextResponse } from 'next/server';
+import { getAppUrl, getGoogleCallbackUrl } from '@/lib/app-env';
+import { getPocketBase } from '@/lib/pocketbase';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const pb = await getServerPocketBase();
-    
-    // PocketBase URL redirect را می‌سازد
-    const authUrl = pb.buildUrl('/api/oauth2-redirect');
-    
-    // Redirect به Google OAuth (PocketBase خودش مدیریت می‌کند)
-    return NextResponse.redirect(
-      `${pb.baseUrl}/api/oauth2-redirect?provider=google`
+    const pb = getPocketBase();
+    const methods = await pb.collection('users').listAuthMethods();
+    const provider = methods.oauth2.providers.find(({ name }) => name === 'google');
+
+    if (!provider) {
+      throw new Error('[configuration] Google OAuth is not enabled for the PocketBase users collection.');
+    }
+
+    const state = crypto.randomUUID();
+    const callbackUrl = getGoogleCallbackUrl();
+    const response = NextResponse.redirect(
+      `${provider.authURL}${encodeURIComponent(callbackUrl)}&state=${encodeURIComponent(state)}`,
     );
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: 10 * 60,
+    };
+    response.cookies.set('oauth_state', state, cookieOptions);
+    response.cookies.set('oauth_code_verifier', provider.codeVerifier, cookieOptions);
+    return response;
   } catch (error) {
     console.error('🔴 Google OAuth error:', error);
-    return NextResponse.redirect(new URL('/login?error=oauth_failed', req.url));
+    return NextResponse.redirect(new URL('/login?error=oauth_failed', getAppUrl()));
   }
 }

@@ -6,6 +6,54 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment and Google OAuth
+
+Copy the example configuration before starting the application:
+
+```bash
+cp .env.example .env.local
+```
+
+Set these origins for each environment (without a trailing slash or path):
+
+- `APP_URL` is the canonical, server-only origin of the Next.js site, for example
+  `https://fanzoom.example.com`.
+- `NEXT_PUBLIC_POCKETBASE_URL` is the single PocketBase origin used throughout the
+  application, for example `https://pb.fanzoom.example.com`. It is public by design
+  and must not contain credentials.
+
+Both variables are required in production. A missing or malformed value produces a
+configuration error instead of silently redirecting to localhost. The localhost
+values in `.env.example` are development defaults only.
+
+The Google callback URI is derived only from `APP_URL` and is **exactly**:
+
+```text
+${APP_URL}/api/auth/google/callback
+```
+
+For the example file, register this exact URI (including scheme, host, port, and
+path) in Google Cloud Console under the OAuth web client's **Authorized redirect
+URIs**:
+
+```text
+http://localhost:3000/api/auth/google/callback
+```
+
+Then open the PocketBase dashboard and configure the `users` auth collection:
+
+1. Go to **Collections → users → Options → OAuth2**.
+2. Enable the **Google** provider and enter the same Google OAuth client ID and
+   client secret.
+3. Keep the Google authorized redirect URI equal to the callback above. For
+   production, add `${APP_URL}/api/auth/google/callback` using the production value
+   as a separate authorized URI.
+
+OAuth starts at `/api/auth/google`. The start handler and callback share the same
+callback URL helper, so the `redirect_uri` sent during authorization and code
+exchange is identical and comes only from the configured `APP_URL`, never from a
+request `Host` header.
+
 First, run the development server:
 
 ```bash

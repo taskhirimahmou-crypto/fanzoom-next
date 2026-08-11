@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import PocketBase from 'pocketbase';
+import { getPocketBase } from '@/lib/pocketbase';
 
 export async function POST(req: NextRequest) {
   const { token, model } = await req.json();
@@ -8,8 +8,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing data' }, { status: 400 });
   }
 
-  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'https://my-backend-fanzoom.liara.run';
-  const pb = new PocketBase(pbUrl);
+  const pb = getPocketBase();
   
   // توکن را در این instance موقت لود می‌کنیم تا اعتبارسنجی شود
   pb.authStore.save(token, model);

@@ -1,4 +1,4 @@
-// src/lib/articles.ts
+import { getPocketBaseUrl } from './pocketbase-url';
 
 /**
  * فرمت تعداد بازدیدها — نسخه‌ی ضدضربه که null/undefined را تحمل می‌کند
@@ -50,6 +50,5 @@ export const safeRelativeTime = (iso: string | null | undefined): string | null 
 export function getImageUrl(article: { id: string; image?: string | null }): string {
   if (!article.image) return '';
   if (article.image.startsWith('http')) return article.image;
-  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
-  return `${pbUrl}/api/files/articles/${article.id}/${article.image}`;
+  return `${getPocketBaseUrl()}/api/files/articles/${article.id}/${article.image}`;
 }
