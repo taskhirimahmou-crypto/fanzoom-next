@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import PocketBase from 'pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
+import {
+  loginErrorUrl,
+  OAUTH_COOKIE,
+  OAUTH_MAX_AGE_SECONDS,
+  safeInternalRedirect,
+  type OAuthCookie,
+  type OAuthErrorCode,
+} from '@/lib/oauth';
+
+function errorResponse(origin: string, error: OAuthErrorCode, redirect = '/') {
+  const response = NextResponse.redirect(loginErrorUrl(origin, error, redirect));
+  response.cookies.delete(OAUTH_COOKIE);
+  return response;
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -10,12 +24,32 @@ export async function GET(req: Request) {
   const googleError = url.searchParams.get('error');
 
   const store = await cookies();
-  const savedState = store.get('oauth_state')?.value;
+  const savedCookie = store.get(OAUTH_COOKIE)?.value;
   const home = url.origin;
 
-  // گارد: بدون code یا state نامعتبر → هرگز به authWithOAuth2 نرسیم
-  if (googleError || !code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(`${home}/login`);
+  let oauth: OAuthCookie | undefined;
+  try {
+    oauth = savedCookie ? (JSON.parse(savedCookie) as OAuthCookie) : undefined;
+  } catch {
+    // A malformed cookie is handled as an invalid state below.
+  }
+  const destination = safeInternalRedirect(oauth?.redirect);
+
+  if (googleError) return errorResponse(home, 'oauth_denied', destination);
+  if (
+    !oauth ||
+    !code ||
+    !state ||
+    typeof oauth.state !== 'string' ||
+    state !== oauth.state ||
+    typeof oauth.codeVerifier !== 'string' ||
+    typeof oauth.createdAt !== 'number' ||
+    !Number.isFinite(oauth.createdAt)
+  ) {
+    return errorResponse(home, 'oauth_state_invalid', destination);
+  }
+  if (Date.now() - oauth.createdAt > OAUTH_MAX_AGE_SECONDS * 1000) {
+    return errorResponse(home, 'oauth_expired', destination);
   }
 
   try {
@@ -24,14 +58,15 @@ export async function GET(req: Request) {
     );
 
     // تبادل code — فقط با code معتبر
-    const auth = await pb.collection('users').authWithOAuth2({
-      provider: 'google',
+    const auth = await pb.collection('users').authWithOAuth2Code(
+      'google',
       code,
-      redirectUrl: `${home}/api/auth/google/callback`,
-    });
+      oauth.codeVerifier,
+      `${home}/api/auth/google/callback`
+    );
 
     // کوکی با همان قرارداد route لاگین (JSON شامل token+record)
-    const res = NextResponse.redirect(`${home}/`);
+    const res = NextResponse.redirect(new URL(destination, home));
     res.cookies.set(
       AUTH_COOKIE,
       JSON.stringify({ token: auth.token, record: auth.record }),
@@ -43,10 +78,10 @@ export async function GET(req: Request) {
         maxAge: 60 * 60 * 24 * 30,
       }
     );
-    res.cookies.delete('oauth_state');
+    res.cookies.delete(OAUTH_COOKIE);
     return res;
   } catch (e) {
     console.error('🔴 Google OAuth error:', e);
-    return NextResponse.redirect(`${home}/login`);
+    return errorResponse(home, 'oauth_exchange_failed', destination);
   }
 }

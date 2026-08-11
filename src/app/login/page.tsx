@@ -1,11 +1,18 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { use, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/Icon';
 import Image from 'next/image';
 
 type Mode = 'login' | 'register';
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  oauth_denied: 'ورود با گوگل لغو شد. می‌توانید دوباره تلاش کنید.',
+  oauth_state_invalid: 'درخواست ورود معتبر نیست. لطفاً دوباره تلاش کنید.',
+  oauth_expired: 'زمان درخواست ورود به پایان رسیده است. لطفاً دوباره تلاش کنید.',
+  oauth_exchange_failed: 'ورود با گوگل انجام نشد. لطفاً چند لحظه دیگر دوباره تلاش کنید.',
+};
 
 function Field({
   label,
@@ -56,7 +63,18 @@ function Benefit({ icon, title, desc }: { icon: IconName; title: string; desc: s
   );
 }
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string | string[]; redirect?: string | string[] }>;
+}) {
+  const query = use(searchParams);
+  const oauthErrorCode = typeof query.error === 'string' ? query.error : '';
+  const oauthError = OAUTH_ERROR_MESSAGES[oauthErrorCode];
+  const requestedRedirect = typeof query.redirect === 'string' ? query.redirect : '';
+  const oauthHref = `/api/auth/google${
+    requestedRedirect ? `?redirect=${encodeURIComponent(requestedRedirect)}` : ''
+  }`;
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -109,6 +127,22 @@ export default function LoginPage() {
               ? 'برای ادامه وارد حساب فن زوم خود شوید.'
               : 'در چند ثانیه به فن زوم بپیوندید.'}
           </p>
+
+          {oauthError && (
+            <div className="mt-6 rounded-xl bg-error/10 px-4 py-3 text-sm font-medium text-error">
+              <div className="flex items-start gap-2.5">
+                <Icon name="error" className="mt-0.5 shrink-0 text-lg" />
+                <span>{oauthError}</span>
+              </div>
+              <Link
+                href={oauthHref}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-error px-4 py-1.5 text-xs font-bold text-on-error transition-all hover:brightness-110 active:scale-95"
+              >
+                <Icon name="refresh" className="text-sm" />
+                تلاش مجدد با گوگل
+              </Link>
+            </div>
+          )}
 
           {/* تب ورود / ثبت‌نام */}
 
@@ -208,7 +242,7 @@ export default function LoginPage() {
 
           {/* Google OAuth Button */}
           <Link
-            href="/api/auth/google"
+            href={oauthHref}
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-outline-variant bg-surface-container px-4 py-3.5 text-sm font-bold text-on-surface transition-all hover:bg-surface-container-high hover:shadow-1 active:scale-[0.98]"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
