@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import PocketBase, { ClientResponseError, type RecordModel } from 'pocketbase';
+import { getPocketBaseUrl } from './pocketbase-url';
 
 export const AUTH_COOKIE = 'pb_auth';
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
@@ -56,9 +57,7 @@ function isRejectedSession(error: unknown) {
  * callers don't mistake an unavailable backend for a logged-out user.
  */
 export async function getServerPocketBase() {
-  const url =
-    process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
-  const pb = new PocketBase(url);
+  const pb = new PocketBase(getPocketBaseUrl());
   const authCookie = (await cookies()).get(AUTH_COOKIE)?.value;
 
   if (!authCookie) return pb;

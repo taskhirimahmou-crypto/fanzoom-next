@@ -31,9 +31,9 @@ describe('getAppUrl', () => {
     expect(getAppUrl('http://localhost:3000/path')).toBe('http://localhost:3000');
   });
 
-  it('requires APP_URL in production', () => {
+  it('uses the Fanzoom origin by default in production', () => {
     vi.stubEnv('APP_URL', '');
     vi.stubEnv('NODE_ENV', 'production');
-    expect(() => getAppUrl('https://untrusted.example')).toThrow(/APP_URL/);
+    expect(getAppUrl('https://untrusted.example')).toBe('https://fanzoom.ir');
   });
 });
