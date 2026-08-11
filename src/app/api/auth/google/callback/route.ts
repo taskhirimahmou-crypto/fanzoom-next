@@ -1,78 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getPocketBase } from '@/lib/pocketbase';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import PocketBase from 'pocketbase';
+import { AUTH_COOKIE } from '@/lib/auth-cookies';
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const googleError = url.searchParams.get('error');
+
+  const store = await cookies();
+  const savedState = store.get('oauth_state')?.value;
+  const home = url.origin;
+
+  if (googleError || !code || !state || !savedState || state !== savedState) {
+    return NextResponse.redirect(`${home}/login`);
+  }
+
   try {
-    const cookieStore = await cookies();
-    const searchParams = req.nextUrl.searchParams;
-    
-    // گرفتن پارامترها از URL
-    const code = searchParams.get('code');
-    const error = searchParams.get('error');
-    
-    // اگر Google خطا برگرداند
-    if (error) {
-      console.error('🔴 Google OAuth error from Google:', error);
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/login?error=oauth_denied`
-      );
-    }
-    
-    if (!code) {
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/login?error=no_code`
-      );
-    }
-    
-    // بازیابی codeVerifier از cookie
-    const codeVerifier = cookieStore.get('pb_oauth2_verifier')?.value;
-    
-    if (!codeVerifier) {
-      console.error('🔴 codeVerifier not found in cookies');
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/login?error=session_expired`
-      );
-    }
-    
-    const pb = getPocketBase();
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/api/auth/google/callback`;
-    
-    // تبادل code با token — روش صحیح server-side
-    const authData = await pb.collection('users').authWithOAuth2Code(
-      'google',
+    const pb = new PocketBase(
+      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
+    );
+
+    const auth = await pb.collection('users').authWithOAuth2({
+      provider: 'google',
       code,
-      codeVerifier,
-      redirectUrl,
+      redirectUrl: `${home}/api/auth/google/callback`,
+    });
+
+    // کاربر جدید گوگل: اگر displayName خالی بود، نام گوگل را بگذار
+    try {
+      const rec = auth.record as { id: string; displayName?: string; name?: string };
+      if (rec && !rec.displayName && rec.name) {
+        await pb.collection('users').update(rec.id, { displayName: rec.name });
+        (auth.record as { displayName?: string }).displayName = rec.name;
+      }
+    } catch {
+      // غیرحیاتی — اگر نشد، بی‌خیال
+    }
+
+    // ست کردن کوکی با همان قرارداد route لاگین (JSON شامل token+record)
+    const res = NextResponse.redirect(`${home}/`);
+    res.cookies.set(
+      AUTH_COOKIE,
+      JSON.stringify({ token: auth.token, record: auth.record }),
       {
-        // ایجاد خودکار کاربر اگر وجود نداشت
-        createData: {
-          emailVisibility: true,
-        },
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 30,
       }
     );
-    
-    // پاک کردن cookie بعد از استفاده
-    cookieStore.delete('pb_oauth2_verifier');
-    
-    // تنظیم cookie احراز هویت PocketBase
-    const token = pb.authStore.token;
-    cookieStore.set('pb_auth', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // ۷ روز
-      path: '/',
-    });
-    
-    // redirect به صفحه اصلی
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/`
-    );
-  } catch (error) {
-    console.error('🔴 Google OAuth callback error:', error);
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'https://fanzoom.ir'}/login?error=oauth_failed`
-    );
+    res.cookies.delete('oauth_state');
+    return res;
+  } catch (e) {
+    console.error('🔴 Google OAuth error:', e);
+    return NextResponse.redirect(`${home}/login`);
   }
 }
