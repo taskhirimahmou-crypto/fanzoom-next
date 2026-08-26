@@ -18,8 +18,8 @@ Client-observed event types accepted by this endpoint are:
 `served`, `open`, `bookmark_add`, `bookmark_remove` and `comment` are trusted server events.
 The existing history, bookmark and comment routes record their applicable trusted events.
 `served` is recorded by the server after a successful feed, using one PocketBase batch for the
-missing events. Its deterministic idempotency key is
-`served:<feedId>:<articleId>:<rank>`; a preflight read plus the unique database index makes
+missing events. Its deterministic idempotency key binds the feed, surface, algorithm hash,
+article and rank; a preflight read plus the unique database index makes
 retries and concurrent requests safe without one network write per card.
 
 Initial server-rendered feeds report to `POST /api/recommendation-events/served` only after the
@@ -46,8 +46,22 @@ Example impression payload:
 
 Successful creation returns HTTP `201`; an idempotent retry returns HTTP `200` with
 `duplicate: true`. Invalid input returns `400`, missing auth returns `401`, and the current
-per-process limit of 120 accepted requests per user/minute returns `429` with `Retry-After`.
-Move this limiter to shared storage when horizontal enforcement is required.
+per-process limit of 120 requests per user/minute returns `429` with `Retry-After`. Invalid
+payloads and duplicate retries consume this budget. A cheap hashed-cookie request bucket plus a
+high global ceiling runs before session refresh, and the authenticated user limiter runs before
+any superuser login or event lookup. The served POST, recommended GET, history-open POST, and
+comment POST use the same ordering around their privileged work. These controls and the in-process
+milestone serialization are suitable for the current single-instance staging check; move them to
+shared storage or database-level coordination before relying on them across horizontally scaled
+Vercel instances. The global ceiling remains the fail-safe for rotated malformed auth cookies.
+
+Before a new client event is stored, the server verifies that the article exists. Recommendation-
+attributed events must contain the complete `feedId`, `rank`, `surface`, and `algorithmVersion`
+tuple and match a `served` event for the same user/article received in the previous 30 minutes.
+`impression` and `not_interested` are never accepted as direct events. `progress_milestone` and
+`engaged` additionally require a recent `open` in the same attributed or direct channel, and
+milestones may only advance through 25/50/75/90. Idempotency-key prefixes are bound to event type
+so a client event cannot reserve a trusted `served`, `open`, bookmark, or comment key.
 
 ## Baseline feed metadata
 

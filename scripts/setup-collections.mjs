@@ -114,7 +114,7 @@ await ensureCollection('comments', {
   ],
   listRule: 'status = "approved"',
   viewRule: 'status = "approved"',
-  createRule: '@request.auth.id = user.id',
+  createRule: null,
   updateRule: null,
   deleteRule: '@request.auth.id = user.id',
 });

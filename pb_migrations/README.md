@@ -15,6 +15,8 @@ The foundation migrations are intentionally non-destructive:
 - `reading_history` is the canonical history collection;
 - legacy `history` records are copied and the legacy collection is retained;
 - `recommendation_events` is locked to superusers and written only by the Next.js server;
+- comment creation and moderation writes are locked to superusers and pass through the Next.js API,
+  which derives the user and always creates comments as `pending`;
 - identified recommendation instrumentation is opt-in through `users.personalizationEnabled`;
 - down migrations do not delete production data.
 

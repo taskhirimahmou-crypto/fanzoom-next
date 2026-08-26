@@ -125,7 +125,7 @@ const disabledEvent = await jsonRequest('/api/recommendation-events', {
   cookie,
   method: 'POST',
   body: JSON.stringify({
-    idempotencyKey: `disabled:${runId}`,
+    idempotencyKey: `share:disabled:${runId}`,
     articleId: article.id,
     eventType: 'share',
     surface: 'article',
@@ -236,6 +236,64 @@ const serverOnly = await jsonRequest('/api/recommendation-events', {
 assert(serverOnly.response.status === 400, 'Client must not create served events directly');
 pass('user forging and server-only event creation are rejected');
 
+const missingArticle = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `share:missing:${runId}`,
+    articleId: 'zzzzzzzzzzzzzzz',
+    eventType: 'share',
+    surface: 'article',
+  }),
+});
+assert(missingArticle.response.status === 400, 'Nonexistent article event was accepted');
+
+const forgedImpression = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `impression:forged:${runId}`,
+    articleId: feed.body.articles[0].id,
+    eventType: 'impression',
+    surface: 'for_you',
+    feedId: `forged_${runId}`,
+    rank: 1,
+    algorithmVersion,
+  }),
+});
+assert(forgedImpression.response.status === 400, 'Impression without matching served evidence was accepted');
+
+const incompleteAttribution = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `share:incomplete:${runId}`,
+    articleId: feed.body.articles[0].id,
+    eventType: 'share',
+    surface: 'for_you',
+    feedId,
+  }),
+});
+assert(incompleteAttribution.response.status === 400, 'Incomplete recommendation attribution was accepted');
+
+const progressBeforeOpen = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `progress:before-open:${runId}:25`,
+    articleId: feed.body.articles[1].id,
+    eventType: 'progress_milestone',
+    surface: 'for_you',
+    feedId,
+    rank: 2,
+    algorithmVersion,
+    engagedSeconds: 6,
+    maxProgress: 25,
+  }),
+});
+assert(progressBeforeOpen.response.status === 400, 'Progress without a matching open was accepted');
+pass('forged article, attribution and reading state are rejected');
+
 const impressionBody = {
   idempotencyKey: `impression:${runId}`,
   articleId: feed.body.articles[0].id,
@@ -260,12 +318,38 @@ const impressionRetry = await jsonRequest('/api/recommendation-events', {
 assert(impressionRetry.response.status === 200, 'Impression retry failed');
 assert(impressionRetry.body.duplicate === true, 'Impression retry was not marked duplicate');
 assert(impressionRetry.body.eventId === impression.body.eventId, 'Duplicate did not return original eventId');
+const poisonedDuplicate = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    ...impressionBody,
+    articleId: feed.body.articles[1].id,
+    rank: 2,
+  }),
+});
+assert(poisonedDuplicate.response.status === 400, 'Idempotency key was reused for different coordinates');
 const storedImpression = await adminPb.collection('recommendation_events').getFirstListItem(
   adminPb.filter('eventId = {:eventId}', { eventId: impression.body.eventId }),
 );
 assert(storedImpression.userId === testUser.id, 'Stored event user was not derived from session');
 pass('event idempotency and session-derived user are enforced');
 
+const legacyOpenBucket = Math.floor(Date.now() / 300_000);
+const legacyOpenKey = `open:${feedId}:${feed.body.articles[0].id}:${legacyOpenBucket}`;
+const legacyOpenAt = new Date().toISOString();
+await adminPb.collection('recommendation_events').create({
+  eventId: crypto.randomUUID(),
+  idempotencyKey: legacyOpenKey,
+  userId: testUser.id,
+  articleId: feed.body.articles[0].id,
+  eventType: 'open',
+  surface: 'for_you',
+  feedId,
+  rank: 1,
+  algorithmVersion,
+  occurredAt: legacyOpenAt,
+  receivedAt: legacyOpenAt,
+});
 const attributedOpen = await jsonRequest('/api/history', {
   cookie,
   method: 'POST',
@@ -275,6 +359,10 @@ const attributedOpen = await jsonRequest('/api/history', {
   }),
 });
 assert(attributedOpen.response.status === 200, 'Attributed history/open failed');
+assert(
+  attributedOpen.body.openRecorded === true && attributedOpen.body.attribution?.feedId === feedId,
+  'History did not confirm the accepted recommendation open channel',
+);
 const incompleteOpen = await jsonRequest('/api/history', {
   cookie,
   method: 'POST',
@@ -284,6 +372,10 @@ const incompleteOpen = await jsonRequest('/api/history', {
   }),
 });
 assert(incompleteOpen.response.status === 200, 'Incomplete-attribution history/open failed');
+assert(
+  incompleteOpen.body.openRecorded === true && incompleteOpen.body.attribution === null,
+  'Incomplete attribution was not confirmed as direct',
+);
 const forgedOpen = await jsonRequest('/api/history', {
   cookie,
   method: 'POST',
@@ -298,6 +390,10 @@ const forgedOpen = await jsonRequest('/api/history', {
   }),
 });
 assert(forgedOpen.response.status === 200, 'Forged-attribution history/open failed');
+assert(
+  forgedOpen.body.openRecorded === true && forgedOpen.body.attribution === null,
+  'Forged attribution was not confirmed as direct',
+);
 const directArticle = articles.find((item) => !feed.body.articles.some((feedItem) => feedItem.id === item.id));
 assert(directArticle, 'A non-feed article is required for direct-open validation');
 const directOpen = await jsonRequest('/api/history', {
@@ -306,6 +402,10 @@ const directOpen = await jsonRequest('/api/history', {
   body: JSON.stringify({ articleId: directArticle.id }),
 });
 assert(directOpen.response.status === 200, 'Direct history/open failed');
+assert(
+  directOpen.body.openRecorded === true && directOpen.body.attribution === null,
+  'Direct open confirmation was missing',
+);
 const openEvents = await adminPb.collection('recommendation_events').getFullList({
   filter: adminPb.filter('userId = {:userId} && eventType = "open"', { userId: testUser.id }),
 });
@@ -322,6 +422,11 @@ if (recommendationOpen?.feedId === feedId && recommendationOpen?.rank === 1) {
   );
 }
 assert(
+  openEvents.filter((event) => event.articleId === feed.body.articles[0].id).length === 1,
+  'A compatible legacy attributed-open retry created a duplicate event',
+);
+pass('legacy attributed-open retries remain idempotent after the key hardening');
+assert(
   !incompleteRecommendationOpen?.feedId && incompleteRecommendationOpen?.surface === 'direct',
   'Incomplete query parameters received recommendation attribution',
 );
@@ -334,6 +439,55 @@ assert(
   'Direct traffic received recommendation attribution',
 );
 pass('direct, incomplete and forged open traffic remains unattributed');
+
+const directProgress = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `progress:direct:${runId}:25`,
+    articleId: directArticle.id,
+    eventType: 'progress_milestone',
+    surface: 'article',
+    engagedSeconds: 6,
+    maxProgress: 25,
+  }),
+});
+assert(directProgress.response.status === 201, 'Direct progress with a recent direct open was rejected');
+const directEngagedBody = {
+  idempotencyKey: `engaged:direct-zero:${runId}`,
+  articleId: directArticle.id,
+  eventType: 'engaged',
+  surface: 'article',
+  engagedSeconds: 8,
+  maxProgress: 0,
+};
+const directEngaged = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify(directEngagedBody),
+});
+assert(directEngaged.response.status === 201, 'Direct engaged event with zero progress was rejected');
+const directEngagedRetry = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify(directEngagedBody),
+});
+assert(
+  directEngagedRetry.response.status === 200 && directEngagedRetry.body.duplicate === true,
+  'Direct engaged retry with zero progress lost idempotency',
+);
+const mixedDirect = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `share:mixed-direct:${runId}`,
+    articleId: directArticle.id,
+    eventType: 'share',
+    surface: 'for_you',
+  }),
+});
+assert(mixedDirect.response.status === 400, 'Direct data was mixed with a recommendation surface');
+pass('direct reading remains separate from recommendation attribution');
 
 const expiredFeedId = `expired_${runId}`;
 const expiredAt = new Date(Date.now() - 31 * 60_000).toISOString();
@@ -350,6 +504,20 @@ await adminPb.collection('recommendation_events').create({
   occurredAt: expiredAt,
   receivedAt: expiredAt,
 });
+const expiredImpression = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `impression:expired:${runId}`,
+    articleId: directArticle.id,
+    eventType: 'impression',
+    surface: 'for_you',
+    feedId: expiredFeedId,
+    rank: 1,
+    algorithmVersion,
+  }),
+});
+assert(expiredImpression.response.status === 400, 'Expired served evidence was accepted for impression');
 const expiredOpen = await jsonRequest('/api/history', {
   cookie,
   method: 'POST',
@@ -375,11 +543,12 @@ for (const [eventType, extra] of [
   ['share', {}],
   ['not_interested', { reasonCode: 'generic' }],
 ]) {
+  const idempotencyPrefix = eventType === 'progress_milestone' ? 'progress' : eventType;
   const event = await jsonRequest('/api/recommendation-events', {
     cookie,
     method: 'POST',
     body: JSON.stringify({
-      idempotencyKey: `${eventType}:${runId}:${extra.maxProgress ?? 'once'}`,
+      idempotencyKey: `${idempotencyPrefix}:${runId}:${extra.maxProgress ?? 'once'}`,
       articleId: feed.body.articles[0].id,
       eventType,
       surface: 'for_you',
@@ -394,6 +563,24 @@ for (const [eventType, extra] of [
 }
 pass('progress, engaged, share and not_interested contracts persist');
 
+const backwardsMilestone = await jsonRequest('/api/recommendation-events', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    idempotencyKey: `progress:backwards:${runId}:25`,
+    articleId: feed.body.articles[0].id,
+    eventType: 'progress_milestone',
+    surface: 'for_you',
+    feedId,
+    rank: 1,
+    algorithmVersion,
+    engagedSeconds: 9,
+    maxProgress: 25,
+  }),
+});
+assert(backwardsMilestone.response.status === 400, 'Repeated or backwards progress was accepted');
+pass('progress milestones must advance within the same feed');
+
 const bookmarkAdd = await jsonRequest('/api/bookmarks', {
   cookie,
   method: 'POST',
@@ -406,6 +593,32 @@ const bookmarkRemove = await jsonRequest('/api/bookmarks', {
   body: JSON.stringify({ articleId: feed.body.articles[2].id }),
 });
 assert(bookmarkRemove.response.status === 200, 'Bookmark remove failed');
+const userPb = new PocketBase(localPb);
+await userPb.collection('users').authWithPassword(testEmail, testPassword);
+let directCommentStatus = 0;
+try {
+  await userPb.collection('comments').create({
+    user: testUser.id,
+    article: feed.body.articles[2].id,
+    content: `direct approved ${runId}`,
+    status: 'approved',
+  });
+} catch (error) {
+  directCommentStatus = error?.status ?? 0;
+}
+assert(directCommentStatus === 403, 'Direct PocketBase comment creation was not locked');
+
+const approvedAttempt = await jsonRequest('/api/comments', {
+  cookie,
+  method: 'POST',
+  body: JSON.stringify({
+    articleId: feed.body.articles[2].id,
+    body: `نظر تایید نشده ${runId}`,
+    status: 'approved',
+  }),
+});
+assert(approvedAttempt.response.status === 400, 'Comment API accepted a client status field');
+
 const commentCreate = await jsonRequest('/api/comments', {
   cookie,
   method: 'POST',
@@ -419,6 +632,26 @@ const pendingComment = await adminPb.collection('comments').getFirstListItem(
   }),
 );
 assert(pendingComment.status === 'pending', 'New comment was not forced to pending');
+const otherUser = await adminPb.collection('users').create({
+  email: `other-${runId}@fanzoom.local`,
+  password: `OtherLocal-${runId}!Z9`,
+  passwordConfirm: `OtherLocal-${runId}!Z9`,
+  verified: true,
+  displayName: 'Other integration user',
+});
+const otherComment = await adminPb.collection('comments').create({
+  user: otherUser.id,
+  article: feed.body.articles[2].id,
+  content: `other pending ${runId}`,
+  status: 'pending',
+});
+let otherCommentUpdateStatus = 0;
+try {
+  await userPb.collection('comments').update(otherComment.id, { status: 'approved' });
+} catch (error) {
+  otherCommentUpdateStatus = error?.status ?? 0;
+}
+assert(otherCommentUpdateStatus === 403, 'User changed another user comment');
 const trustedEvents = await adminPb.collection('recommendation_events').getFullList({
   filter: adminPb.filter(
     'userId = {:userId} && (eventType = "bookmark_add" || eventType = "bookmark_remove" || eventType = "comment")',
@@ -426,10 +659,9 @@ const trustedEvents = await adminPb.collection('recommendation_events').getFullL
   ),
 });
 assert(new Set(trustedEvents.map((event) => event.eventType)).size === 3, 'Trusted interaction events are incomplete');
+pass('comment creation is server-only, pending and not user-moderatable');
 pass('bookmark and pending comment flows create trusted events');
 
-const userPb = new PocketBase(localPb);
-await userPb.collection('users').authWithPassword(testEmail, testPassword);
 let privateReadStatus = 0;
 try {
   await userPb.collection('recommendation_events').getList(1, 1);
@@ -540,33 +772,82 @@ assert(servedRateLimited?.body?.error === 'rate_limited', 'Served batch rate lim
 assert(Number(servedRateLimited.response.headers.get('retry-after')) >= 1, 'Served rate limit lacks Retry-After');
 pass('served batch rate limit returns 429 and Retry-After');
 
-let eventRateLimited = null;
+let invalidEventRateLimited = null;
 for (let index = 0; index < 130; index += 1) {
   const attempt = await jsonRequest('/api/recommendation-events', {
     cookie,
     method: 'POST',
-    body: JSON.stringify({
-      idempotencyKey: `ratelimit:${runId}:${String(index).padStart(3, '0')}`,
-      articleId: article.id,
-      eventType: 'share',
-      surface: 'article',
-      occurredAt: new Date().toISOString(),
-    }),
+    body: JSON.stringify({ invalid: index }),
   });
   if (attempt.response.status === 429) {
-    eventRateLimited = attempt;
+    invalidEventRateLimited = attempt;
     break;
   }
 }
-assert(eventRateLimited?.body?.error === 'rate_limited', 'Event ingestion rate limit did not return 429');
-assert(Number(eventRateLimited.response.headers.get('retry-after')) >= 1, 'Event rate limit lacks Retry-After');
+assert(invalidEventRateLimited?.body?.error === 'rate_limited', 'Invalid payload flood did not return 429');
+assert(Number(invalidEventRateLimited.response.headers.get('retry-after')) >= 1, 'Invalid flood lacks Retry-After');
 const duplicateAfterLimit = await jsonRequest('/api/recommendation-events', {
   cookie,
   method: 'POST',
   body: JSON.stringify(impressionBody),
 });
-assert(duplicateAfterLimit.response.status === 200 && duplicateAfterLimit.body.duplicate === true, 'Duplicate retry broke after rate limit');
-pass('event rate limit returns 429 while safe duplicate retries still work');
+assert(duplicateAfterLimit.response.status === 429, 'Duplicate bypassed an exhausted user rate limit');
+pass('invalid payloads and duplicates cannot bypass an exhausted user limit');
+
+const duplicateFloodEmail = `duplicate-${runId}@fanzoom.local`;
+const duplicateFloodPassword = `DuplicateLocal-${runId}!Z9`;
+const duplicateFloodUser = await adminPb.collection('users').create({
+  email: duplicateFloodEmail,
+  password: duplicateFloodPassword,
+  passwordConfirm: duplicateFloodPassword,
+  verified: true,
+  displayName: 'Duplicate flood user',
+  personalizationEnabled: true,
+  personalizationConsentAt: new Date().toISOString(),
+});
+const duplicateFloodLogin = await jsonRequest('/api/auth/login', {
+  method: 'POST',
+  body: JSON.stringify({ email: duplicateFloodEmail, password: duplicateFloodPassword }),
+});
+const duplicateFloodSetCookie = duplicateFloodLogin.response.headers.get('set-cookie') ?? '';
+const duplicateFloodCookieMatch = duplicateFloodSetCookie.match(/pb_auth=([^;]+)/);
+assert(duplicateFloodCookieMatch, 'Duplicate flood user did not receive a session');
+const duplicateFloodCookie = `pb_auth=${duplicateFloodCookieMatch[1]}`;
+const duplicateFloodBody = {
+  idempotencyKey: `share:duplicate-flood:${runId}`,
+  articleId: article.id,
+  eventType: 'share',
+  surface: 'article',
+  occurredAt: new Date().toISOString(),
+};
+const duplicateFloodFirst = await jsonRequest('/api/recommendation-events', {
+  cookie: duplicateFloodCookie,
+  method: 'POST',
+  body: JSON.stringify(duplicateFloodBody),
+});
+assert(duplicateFloodFirst.response.status === 201, 'Duplicate flood setup event failed');
+let duplicateFloodLimited = null;
+for (let index = 0; index < 130; index += 1) {
+  const attempt = await jsonRequest('/api/recommendation-events', {
+    cookie: duplicateFloodCookie,
+    method: 'POST',
+    body: JSON.stringify(duplicateFloodBody),
+  });
+  if (attempt.response.status === 429) {
+    duplicateFloodLimited = attempt;
+    break;
+  }
+}
+assert(duplicateFloodLimited?.body?.error === 'rate_limited', 'Duplicate flood did not return 429');
+assert(Number(duplicateFloodLimited.response.headers.get('retry-after')) >= 1, 'Duplicate flood lacks Retry-After');
+const duplicateRows = await adminPb.collection('recommendation_events').getFullList({
+  filter: adminPb.filter(
+    'userId = {:userId} && idempotencyKey = {:idempotencyKey}',
+    { userId: duplicateFloodUser.id, idempotencyKey: duplicateFloodBody.idempotencyKey },
+  ),
+});
+assert(duplicateRows.length === 1, 'Duplicate flood created more than one event');
+pass('duplicate flood is bounded and remains idempotent');
 
 await adminPb.collection('users').update(testUser.id, {
   personalizationEnabled: false,

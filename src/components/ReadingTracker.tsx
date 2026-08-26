@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import type { RecommendationAttribution } from '@/lib/recommender/attribution';
+import { useEffect, useRef, useState } from 'react';
+import {
+  parseRecommendationAttribution,
+  type RecommendationAttribution,
+} from '@/lib/recommender/attribution';
 import { sendRecommendationEvent } from '@/lib/recommender/client-events';
 import { estimateReadSeconds, ReadingEngagementController } from '@/lib/reading/engagement';
 
@@ -18,27 +21,56 @@ export function ReadingTracker({
   articleElementId: string;
   attribution?: RecommendationAttribution;
 }) {
-  const historyFired = useRef(false);
+  const historyArticleId = useRef<string | null>(null);
   const readingSessionId = useRef<string | null>(null);
+  const [openConfirmation, setOpenConfirmation] = useState<{
+    articleId: string;
+    attribution?: RecommendationAttribution;
+  } | null>(null);
 
   useEffect(() => {
-    if (!signedIn || !articleId || historyFired.current) return;
-    historyFired.current = true;
-    fetch('/api/history', {
+    if (!signedIn || !articleId || historyArticleId.current === articleId) return;
+    historyArticleId.current = articleId;
+    readingSessionId.current = null;
+    setOpenConfirmation(null);
+    void fetch('/api/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ articleId, attribution }),
-    }).catch(() => {});
+    })
+      .then(async (response) => {
+        const result = (await response.json().catch(() => null)) as {
+          openRecorded?: unknown;
+          attribution?: unknown;
+        } | null;
+        if (
+          response.ok &&
+          result?.openRecorded === true &&
+          historyArticleId.current === articleId
+        ) {
+          setOpenConfirmation({
+            articleId,
+            attribution: parseRecommendationAttribution(result.attribution),
+          });
+        }
+      })
+      .catch(() => {});
   }, [articleId, attribution, signedIn]);
 
   useEffect(() => {
-    if (!signedIn || !personalizationEnabled || !articleId) return;
+    if (
+      !signedIn ||
+      !personalizationEnabled ||
+      openConfirmation?.articleId !== articleId ||
+      !articleId
+    ) return;
     const articleElement = document.getElementById(articleElementId);
     if (!articleElement) return;
     readingSessionId.current ??= crypto.randomUUID();
     const sessionId = readingSessionId.current;
-    const eventContext = attribution ?? {};
-    const eventSurface = attribution?.surface ?? 'article';
+    const acceptedAttribution = openConfirmation.attribution;
+    const eventContext = acceptedAttribution ?? {};
+    const eventSurface = acceptedAttribution?.surface ?? 'article';
     const controller = new ReadingEngagementController({
       expectedReadSeconds: estimateReadSeconds(articleElement.textContent ?? ''),
       onMilestone: (milestone, snapshot) => {
@@ -124,7 +156,7 @@ export function ReadingTracker({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };
-  }, [articleElementId, articleId, attribution, personalizationEnabled, signedIn]);
+  }, [articleElementId, articleId, openConfirmation, personalizationEnabled, signedIn]);
 
   return null;
 }

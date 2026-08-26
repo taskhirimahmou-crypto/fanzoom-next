@@ -1,33 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { AUTH_COOKIE, getServerPocketBase } from '@/lib/auth-cookies';
 import { getRecommendedArticles } from '@/lib/articles-server';
 import { readPersonalizationEnabled } from '@/lib/personalization/consent';
 import { FixedWindowRateLimiter } from '@/lib/rate-limit';
 import { validateServedBatchRequest } from '@/lib/recommender/served-batch';
 import { recordServedRecommendationBatch } from '@/lib/recommender/trusted-events';
+import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 
 const servedRateLimiter = new FixedWindowRateLimiter(30, 60_000);
+const servedRequestRateLimiter = new FixedWindowRateLimiter(60, 60_000);
+const globalServedRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
+
+function rateLimited(retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: 'rate_limited', retryAfterSeconds },
+    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+  );
+}
 
 export async function POST(req: NextRequest) {
+  const globalLimit = globalServedRequestRateLimiter.consume('recommendation-events-served-global');
+  if (!globalLimit.allowed) return rateLimited(globalLimit.retryAfterSeconds);
+  const requestLimit = servedRequestRateLimiter.consume(
+    preAuthRateLimitKey('recommendation-events-served', req.cookies.get(AUTH_COOKIE)?.value),
+  );
+  if (!requestLimit.allowed) return rateLimited(requestLimit.retryAfterSeconds);
+
   const pb = await getServerPocketBase();
   const record = pb.authStore.record as { id?: string; collectionName?: string } | null;
   if (!record?.id || record.collectionName !== 'users') {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+  const rateLimit = servedRateLimiter.consume(record.id);
+  if (!rateLimit.allowed) return rateLimited(rateLimit.retryAfterSeconds);
+
   if (!(await readPersonalizationEnabled(pb, record.id))) {
     return NextResponse.json({ error: 'personalization_disabled' }, { status: 403 });
   }
 
   const parsed = validateServedBatchRequest(await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: 'invalid_batch' }, { status: 400 });
-
-  const rateLimit = servedRateLimiter.consume(record.id);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: 'rate_limited', retryAfterSeconds: rateLimit.retryAfterSeconds },
-      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
-    );
-  }
 
   const user = (await pb.collection('users').getOne(record.id, {
     fields: 'interests',

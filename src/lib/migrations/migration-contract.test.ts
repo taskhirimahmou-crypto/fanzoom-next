@@ -244,4 +244,28 @@ describe('PocketBase migration contract', () => {
     expect(() => runMigration(app, 'add_direct_recommendation_surface.js')).not.toThrow();
     expect(surface?.values).toContain('direct');
   });
+
+  it('locks direct comment creation and updates without changing existing records', () => {
+    const migration = readMigration('harden_comment_moderation.js');
+    expect(migration).toContain('comments.createRule = null');
+    expect(migration).toContain('comments.updateRule = null');
+    expect(migration).not.toMatch(/app\.delete\s*\(/);
+
+    const app = new MockApp();
+    runMigration(app, 'bootstrap_core_schema.js');
+    const comments = app.collections.get('comments');
+    expect(comments).toBeDefined();
+    if (comments) {
+      comments.createRule = '@request.auth.id = user.id';
+      comments.updateRule = '@request.auth.id = user.id';
+      const existing = new MockRecord(comments);
+      existing.set('content', 'existing comment');
+      app.save(existing);
+    }
+
+    expect(() => runMigration(app, 'harden_comment_moderation.js')).not.toThrow();
+    expect(() => runMigration(app, 'harden_comment_moderation.js')).not.toThrow();
+    expect(comments).toMatchObject({ createRule: null, updateRule: null });
+    expect(app.findAllRecords('comments')).toHaveLength(1);
+  });
 });

@@ -4,8 +4,9 @@ import {
   ingestRecommendationEvent,
   recordTrustedRecommendationEvent,
   recordTrustedRecommendationEventBatch,
+  servedEventSemanticMarker,
+  type ClientRecommendationEventRepository,
   type RecommendationEventBatchRepository,
-  type RecommendationEventRepository,
 } from './event-service';
 import type { RecommendationEventRecord } from './contracts';
 
@@ -20,14 +21,41 @@ const validEvent = {
 
 function createRepository() {
   const records = new Map<string, RecommendationEventRecord>();
-  const repository: RecommendationEventRepository = {
+  const repository: ClientRecommendationEventRepository = {
     async findByIdempotencyKey(userId, key) {
       const record = records.get(`${userId}:${key}`);
       return record ? { eventId: record.eventId } : null;
     },
+    async findClientEventByIdempotencyKey(userId, key) {
+      const record = records.get(`${userId}:${key}`);
+      if (!record) return null;
+      return {
+        eventId: record.eventId,
+        articleId: record.articleId,
+        eventType: record.eventType,
+        surface: record.surface,
+        feedId: record.feedId,
+        rank: record.rank,
+        algorithmVersion: record.algorithmVersion,
+        maxProgress: record.maxProgress,
+        reasonCode: record.reasonCode,
+      };
+    },
     async create(event) {
       records.set(`${event.userId}:${event.idempotencyKey}`, event);
       return { eventId: event.eventId };
+    },
+    async articleExists() {
+      return true;
+    },
+    async hasRecentServed() {
+      return true;
+    },
+    async hasRecentOpen() {
+      return true;
+    },
+    async findHighestProgressMilestone() {
+      return undefined;
     },
   };
   return { records, repository };
@@ -40,14 +68,16 @@ describe('recommendation event ingestion', () => {
     const rateLimiter = new FixedWindowRateLimiter(10, 60_000);
 
     const first = await ingestRecommendationEvent(validEvent, 'auth-user', {
-      repository,
+      getRepository: async () => repository,
       rateLimiter,
+      isPersonalizationEnabled: async () => true,
       now,
       createEventId,
     });
     const retry = await ingestRecommendationEvent(validEvent, 'auth-user', {
-      repository,
+      getRepository: async () => repository,
       rateLimiter,
+      isPersonalizationEnabled: async () => true,
       now,
       createEventId,
     });
@@ -63,16 +93,28 @@ describe('recommendation event ingestion', () => {
     const result = await ingestRecommendationEvent(
       { ...validEvent, userId: 'forged-user' },
       'auth-user',
-      { repository, rateLimiter: new FixedWindowRateLimiter(10, 60_000), now },
+      {
+        getRepository: async () => repository,
+        rateLimiter: new FixedWindowRateLimiter(10, 60_000),
+        isPersonalizationEnabled: async () => true,
+        now,
+      },
     );
     expect(result.kind).toBe('invalid');
     expect(records.size).toBe(0);
   });
 
-  it('rate limits new keys but still allows idempotent retries', async () => {
+  it('charges normal idempotent retries and rate limits before repository access', async () => {
     const { repository } = createRepository();
-    const rateLimiter = new FixedWindowRateLimiter(1, 60_000);
-    const dependencies = { repository, rateLimiter, now, createEventId: () => 'event-1' };
+    const findByIdempotencyKey = vi.spyOn(repository, 'findClientEventByIdempotencyKey');
+    const rateLimiter = new FixedWindowRateLimiter(2, 60_000);
+    const dependencies = {
+      getRepository: async () => repository,
+      rateLimiter,
+      isPersonalizationEnabled: async () => true,
+      now,
+      createEventId: () => 'event-1',
+    };
 
     await ingestRecommendationEvent(validEvent, 'auth-user', dependencies);
     const retry = await ingestRecommendationEvent(validEvent, 'auth-user', dependencies);
@@ -84,12 +126,100 @@ describe('recommendation event ingestion', () => {
 
     expect(retry.kind).toBe('duplicate');
     expect(limited.kind).toBe('rate_limited');
+    expect(findByIdempotencyKey).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects reuse of a client idempotency key for different event coordinates', async () => {
+    const { records, repository } = createRepository();
+    const dependencies = {
+      getRepository: async () => repository,
+      rateLimiter: new FixedWindowRateLimiter(10, 60_000),
+      isPersonalizationEnabled: async () => true,
+      now,
+      createEventId: () => 'event-1',
+    };
+    await ingestRecommendationEvent(validEvent, 'auth-user', dependencies);
+    const poisonedRetry = await ingestRecommendationEvent(
+      { ...validEvent, articleId: 'xyz123def456ghi' },
+      'auth-user',
+      dependencies,
+    );
+
+    expect(poisonedRetry).toEqual({
+      kind: 'invalid',
+      errors: ['idempotencyKey already belongs to a different event'],
+    });
+    expect(records.size).toBe(1);
+  });
+
+  it('serializes concurrent milestones for one user and recommendation channel', async () => {
+    const { records, repository } = createRepository();
+    repository.findHighestProgressMilestone = async () => {
+      const milestones = [...records.values()]
+        .filter((record) => record.eventType === 'progress_milestone')
+        .map((record) => Number(record.maxProgress));
+      return milestones.length > 0 ? Math.max(...milestones) : undefined;
+    };
+    let sequence = 0;
+    const dependencies = {
+      getRepository: async () => repository,
+      rateLimiter: new FixedWindowRateLimiter(10, 60_000),
+      isPersonalizationEnabled: async () => true,
+      now,
+      createEventId: () => `event-${++sequence}`,
+    };
+    const event = {
+      articleId: 'abc123def456ghi',
+      eventType: 'progress_milestone',
+      surface: 'for_you',
+      feedId: 'feed_12345678',
+      rank: 1,
+      algorithmVersion: 'baseline-category-round-robin-v1',
+      occurredAt: now.toISOString(),
+      engagedSeconds: 8,
+    } as const;
+
+    const [fifty, twentyFive] = await Promise.all([
+      ingestRecommendationEvent(
+        { ...event, idempotencyKey: 'progress:session123:article123:50', maxProgress: 50 },
+        'auth-user',
+        dependencies,
+      ),
+      ingestRecommendationEvent(
+        { ...event, idempotencyKey: 'progress:session123:article123:25', maxProgress: 25 },
+        'auth-user',
+        dependencies,
+      ),
+    ]);
+
+    expect(fifty.kind).toBe('created');
+    expect(twentyFive).toEqual({ kind: 'invalid', errors: ['progress milestone must advance'] });
+    expect(records.size).toBe(1);
+  });
+
+  it('charges invalid payloads without acquiring a privileged repository', async () => {
+    const { repository } = createRepository();
+    const getRepository = vi.fn(async () => repository);
+    const dependencies = {
+      getRepository,
+      rateLimiter: new FixedWindowRateLimiter(1, 60_000),
+      isPersonalizationEnabled: vi.fn(async () => true),
+      now,
+    };
+
+    const invalid = await ingestRecommendationEvent({}, 'auth-user', dependencies);
+    const flooded = await ingestRecommendationEvent({}, 'auth-user', dependencies);
+
+    expect(invalid.kind).toBe('invalid');
+    expect(flooded.kind).toBe('rate_limited');
+    expect(getRepository).not.toHaveBeenCalled();
+    expect(dependencies.isPersonalizationEnabled).not.toHaveBeenCalled();
   });
 
   it('allows server-only event types through the trusted path', async () => {
     const { records, repository } = createRepository();
     const result = await recordTrustedRecommendationEvent(
-      { ...validEvent, idempotencyKey: 'bookmark:123456', eventType: 'bookmark_add' },
+      { ...validEvent, idempotencyKey: 'bookmark_add:123456', eventType: 'bookmark_add' },
       'auth-user',
       { repository, now, createEventId: () => 'trusted-event' },
     );
@@ -114,7 +244,13 @@ describe('recommendation event ingestion', () => {
       },
       create,
       async findExistingIdempotencyKeys(userId, keys) {
-        return new Set(keys.filter((key) => records.has(`${userId}:${key}`)));
+        const found = new Set(keys.filter((key) => records.has(`${userId}:${key}`)));
+        for (const event of records.values()) {
+          if (event.userId === userId && event.eventType === 'served' && keys.includes(event.idempotencyKey)) {
+            found.add(servedEventSemanticMarker(event));
+          }
+        }
+        return found;
       },
     };
     const served = [1, 2].map((rank) => ({
@@ -161,7 +297,13 @@ describe('recommendation event ingestion', () => {
         return event ? { eventId: event.eventId } : null;
       },
       async findExistingIdempotencyKeys(userId, keys) {
-        return new Set(keys.filter((key) => records.has(`${userId}:${key}`)));
+        const found = new Set(keys.filter((key) => records.has(`${userId}:${key}`)));
+        for (const event of records.values()) {
+          if (event.userId === userId && event.eventType === 'served' && keys.includes(event.idempotencyKey)) {
+            found.add(servedEventSemanticMarker(event));
+          }
+        }
+        return found;
       },
       async create(event) {
         if (failSecond && event.rank === 2) throw new Error('temporary');
@@ -196,5 +338,52 @@ describe('recommendation event ingestion', () => {
       kind: 'completed', total: 3, created: 1, duplicates: 2, failures: [],
     });
     expect(records.size).toBe(3);
+  });
+
+  it('treats legacy served keys as duplicates during a rolling rollout', async () => {
+    const records = new Map<string, RecommendationEventRecord>();
+    const served = {
+      idempotencyKey: 'served:feed_12345678:for_you:abc123hash45678:article12345671:1',
+      articleId: 'article12345671',
+      eventType: 'served',
+      surface: 'for_you',
+      feedId: 'feed_12345678',
+      rank: 1,
+      algorithmVersion: 'baseline-category-round-robin-v1',
+      occurredAt: now.toISOString(),
+    } as const;
+    const legacyKey = `served:${served.feedId}:${served.articleId}:${served.rank}`;
+    records.set(`auth-user:${legacyKey}`, {
+      ...served,
+      idempotencyKey: legacyKey,
+      eventId: 'legacy-event',
+      userId: 'auth-user',
+      receivedAt: now.toISOString(),
+    });
+    const repository: RecommendationEventBatchRepository = {
+      async findByIdempotencyKey(userId, key) {
+        const event = records.get(`${userId}:${key}`);
+        return event ? { eventId: event.eventId } : null;
+      },
+      async findExistingIdempotencyKeys(userId, keys) {
+        const found = new Set(keys.filter((key) => records.has(`${userId}:${key}`)));
+        const legacy = records.get(`${userId}:${legacyKey}`);
+        if (legacy && keys.includes(legacyKey)) found.add(servedEventSemanticMarker(legacy));
+        return found;
+      },
+      async create(event) {
+        records.set(`${event.userId}:${event.idempotencyKey}`, event);
+        return { eventId: event.eventId };
+      },
+    };
+
+    const result = await recordTrustedRecommendationEventBatch([served], 'auth-user', {
+      repository,
+      now,
+    });
+    expect(result).toEqual({
+      kind: 'completed', total: 1, created: 0, duplicates: 1, failures: [],
+    });
+    expect(records.size).toBe(1);
   });
 });

@@ -36,6 +36,18 @@ const EVENT_TYPES = new Set<string>(RECOMMENDATION_EVENT_TYPES);
 const SURFACES = new Set<string>(RECOMMENDATION_SURFACES);
 const REASON_CODES = new Set<string>(NOT_INTERESTED_REASON_CODES);
 const PROGRESS_MILESTONES = new Set([25, 50, 75, 90]);
+const IDEMPOTENCY_PREFIXES: Record<RecommendationEventType, string> = {
+  served: 'served:',
+  impression: 'impression:',
+  open: 'open:',
+  engaged: 'engaged:',
+  progress_milestone: 'progress:',
+  bookmark_add: 'bookmark_add:',
+  bookmark_remove: 'bookmark_remove:',
+  share: 'share:',
+  comment: 'comment:',
+  not_interested: 'not_interested:',
+};
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -68,6 +80,8 @@ export function validateRecommendationEventInput(
     errors.push('eventType is invalid');
   } else if (!options.allowServerOnlyEvents && !PUBLIC_EVENT_TYPES.has(eventType)) {
     errors.push(`${eventType} is recorded only by trusted server flows`);
+  } else if (!idempotencyKey.startsWith(IDEMPOTENCY_PREFIXES[eventType as RecommendationEventType])) {
+    errors.push('idempotencyKey does not match eventType');
   }
 
   const surface = isString(raw.surface) ? raw.surface : '';

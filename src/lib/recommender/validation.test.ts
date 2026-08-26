@@ -4,7 +4,7 @@ import { validateRecommendationEventInput } from './validation';
 const nowMs = Date.parse('2026-08-11T12:00:00.000Z');
 
 const validImpression = {
-  idempotencyKey: 'event:12345678',
+  idempotencyKey: 'impression:12345678',
   articleId: 'abc123def456ghi',
   eventType: 'impression',
   surface: 'for_you',
@@ -42,15 +42,40 @@ describe('recommendation event validation', () => {
     });
   });
 
+  it('binds idempotency namespaces to event types', () => {
+    const poisoned = validateRecommendationEventInput(
+      {
+        ...validImpression,
+        idempotencyKey: 'served:feed_12345678:abc123def456ghi:1',
+        eventType: 'share',
+      },
+      { nowMs },
+    );
+    expect(poisoned).toEqual({
+      ok: false,
+      errors: expect.arrayContaining(['idempotencyKey does not match eventType']),
+    });
+  });
+
   it('requires exact progress milestones', () => {
     const invalid = validateRecommendationEventInput(
-      { ...validImpression, eventType: 'progress_milestone', maxProgress: 42 },
+      {
+        ...validImpression,
+        idempotencyKey: 'progress:session123:article123:42',
+        eventType: 'progress_milestone',
+        maxProgress: 42,
+      },
       { nowMs },
     );
     expect(invalid.ok).toBe(false);
 
     const valid = validateRecommendationEventInput(
-      { ...validImpression, eventType: 'progress_milestone', maxProgress: 50 },
+      {
+        ...validImpression,
+        idempotencyKey: 'progress:session123:article123:50',
+        eventType: 'progress_milestone',
+        maxProgress: 50,
+      },
       { nowMs },
     );
     expect(valid.ok).toBe(true);
@@ -59,13 +84,22 @@ describe('recommendation event validation', () => {
   it('requires a controlled reason for not_interested', () => {
     expect(
       validateRecommendationEventInput(
-        { ...validImpression, eventType: 'not_interested' },
+        {
+          ...validImpression,
+          idempotencyKey: 'not_interested:12345678',
+          eventType: 'not_interested',
+        },
         { nowMs },
       ).ok,
     ).toBe(false);
     expect(
       validateRecommendationEventInput(
-        { ...validImpression, eventType: 'not_interested', reasonCode: 'topic' },
+        {
+          ...validImpression,
+          idempotencyKey: 'not_interested:12345678',
+          eventType: 'not_interested',
+          reasonCode: 'topic',
+        },
         { nowMs },
       ).ok,
     ).toBe(true);
