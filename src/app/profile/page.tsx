@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getCurrentUser } from '@/lib/auth-cookies';
 import { Icon } from '@/components/Icon';
 import { InterestsPicker } from '@/components/InterestsPicker';
 import { LogoutButton } from '@/components/LogoutButton';
@@ -10,23 +10,14 @@ import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 export const metadata: Metadata = { title: 'پروفایل من' };
 
 export default async function ProfilePage() {
-  const pb = await getServerPocketBase();
-  const record = pb.authStore.record as {
-    id: string;
-    email: string;
-    displayName?: string;
-    bio?: string;
-    interests?: string[];
-    created: string;
-  } | null;
-
-  // اگر لاگین نیست، به صفحه‌ی ورود برو
-  if (!record) redirect('/login');
+  const auth = await getCurrentUser();
+  if (!auth) redirect('/login');
+  const { pb, user: record } = auth;
   // record تازه و کامل از PocketBase (authStore فقط فیلدهای پایه را دارد)
-const freshUser = (await pb.collection('users').getOne(record.id)) as {
-  interests?: string[];
-  personalizationEnabled?: boolean;
-};
+  const freshUser = (await pb.collection('users').getOne(record.id)) as {
+    interests?: string[];
+    personalizationEnabled?: boolean;
+  };
 
   const initial = (record.displayName || record.email || 'ک')[0];
   const memberSince = new Date(record.created).toLocaleDateString('fa-IR', {
@@ -77,11 +68,10 @@ const freshUser = (await pb.collection('users').getOne(record.id)) as {
           </p>
         </div>
 
-        {/* علایق */}
-    {/* علاقه‌مندی‌ها — Interactive Picker */}
-<div className="mt-6">
-<InterestsPicker initialInterests={freshUser.interests ?? []} />
-</div>
+        {/* علاقه‌مندی‌ها — Interactive Picker */}
+        <div className="mt-6">
+          <InterestsPicker initialInterests={freshUser.interests ?? []} />
+        </div>
 
         <PersonalizationToggle
           initialEnabled={isPersonalizationEnabled(freshUser)}

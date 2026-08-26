@@ -1,40 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import PocketBase from 'pocketbase';
-import { getPocketBaseServerUrl } from '@/lib/pocketbase-url';
+import { NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
-  const { token, model } = await req.json();
-  
-  if (!token || !model) {
-    return NextResponse.json({ error: 'Missing data' }, { status: 400 });
-  }
-
-  const pb = new PocketBase(getPocketBaseServerUrl());
-  
-  // توکن را در این instance موقت لود می‌کنیم تا اعتبارسنجی شود
-  pb.authStore.save(token, model);
-  
-  try {
-    // بررسی اینکه توکن واقعاً معتبر است
-    await pb.collection('users').authRefresh();
-    
-    const response = NextResponse.json({ success: true });
-    
-    // ⚠️ بسیار مهم: 
-    // اگر در فایل src/app/api/auth/login/route.ts از روش خاصی برای ست کردن کوکی 
-    // (مثلاً تابع خاصی از auth-cookies) استفاده کرده‌ای، دقیقاً همان را اینجا کپی کن.
-    // در غیر این صورت، از این استاندارد استفاده کن:
-    response.cookies.set('pb_auth', pb.authStore.exportToCookie({
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 روز
-    }));
-    
-    return response;
-  } catch (error) {
-    console.error('🔴 Cookie set error:', error);
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  }
+/**
+ * Kept as a compatibility tombstone after the unified server-side auth flow
+ * removed client-submitted PocketBase sessions.
+ */
+export async function POST() {
+  return NextResponse.json(
+    { error: 'This authentication endpoint is no longer supported' },
+    { status: 410 },
+  );
 }

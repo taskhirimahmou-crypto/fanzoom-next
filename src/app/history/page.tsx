@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getServerPocketBase } from '@/lib/auth-cookies';
+import { getCurrentUser } from '@/lib/auth-cookies';
 import { safeRelativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
 import { resolveImage } from '@/lib/articles-server';
@@ -18,9 +18,10 @@ const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 
 export default async function HistoryPage() {
-  const pb = await getServerPocketBase();
-  const userId = pb.authStore.record?.id;
-  if (!userId) redirect('/login');
+  const auth = await getCurrentUser();
+  if (!auth) redirect('/login');
+  const { pb } = auth;
+  const userId = auth.user.id;
 
   // ۱. خواندن رکوردهای تاریخچه (استفاده از expand در query برای جلوگیری از خطای N+1)
   let entries: HistoryEntry[] = [];

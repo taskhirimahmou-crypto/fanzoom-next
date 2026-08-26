@@ -4,8 +4,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import './globals.css';
-import { getServerPocketBase } from '@/lib/auth-cookies';
-import { cache } from 'react';
+import { getCurrentUser } from '@/lib/auth-cookies';
 
 const vazir = Vazirmatn({
   subsets: ['arabic', 'latin'],
@@ -90,20 +89,17 @@ authors: [{ name: 'تحریریه فن زوم' }],
   },
 };
 
-const getCurrentUser = cache(async () => {
-  const pb = await getServerPocketBase();
-  const record = pb.authStore.record as
-    | { id: string; email: string; displayName?: string }
-    | null;
-  return record
-    ? { id: record.id, email: record.email, displayName: record.displayName }
-    : null;
-});
-
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getCurrentUser();
+  const auth = await getCurrentUser();
+  const user = auth
+    ? {
+        id: auth.user.id,
+        email: auth.user.email,
+        displayName: auth.user.displayName,
+      }
+    : null;
 
   return (
     <html

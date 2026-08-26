@@ -6,6 +6,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+The application defaults to `https://fanzoom.ir` and the Fanzoom PocketBase
+deployment. Copy `.env.example` to `.env.local` only when you need to override
+those URLs for a preview or local environment.
+
+Enable Google OAuth for the PocketBase `users` collection and register this exact
+redirect URI in the provider configuration:
+
+```text
+${APP_URL}/api/auth/google/callback
+```
+
 First, run the development server:
 
 ```bash
