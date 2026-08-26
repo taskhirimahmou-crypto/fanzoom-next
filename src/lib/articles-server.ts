@@ -4,6 +4,7 @@ import { getPocketBase } from '@/lib/pocketbase';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getImageUrl } from '@/lib/articles';
 import type { ArticlesResponse } from '@/lib/pb-types';
+import { interleaveRecommendationLists } from '@/lib/recommendations/baseline';
 
 export type Article = ArticlesResponse;
 const PUBLISHED = 'status = "published"';
@@ -226,20 +227,7 @@ const getRecommendedPool = async (interests: string[]): Promise<Article[]> => {
         .map((l) => l.items.map((i) => resolveImage(i as unknown as Article)));
 
       // Round-robin: یک مقاله از هر دسته به نوبت → تنوع کامل
-      const pool: Article[] = [];
-      let idx = 0;
-      for (;;) {
-        let added = false;
-        for (const arr of arrays) {
-          if (arr[idx]) {
-            pool.push(arr[idx]);
-            added = true;
-          }
-        }
-        if (!added) break;
-        idx++;
-      }
-      return pool;
+      return interleaveRecommendationLists(arrays);
     },
     ['recommended-pool-v1', ...interests],
     { revalidate: 60 }

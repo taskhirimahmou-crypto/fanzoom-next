@@ -1,6 +1,11 @@
 // scripts/setup-collections.mjs
 import PocketBase from 'pocketbase';
 
+console.warn(
+  '⚠️  DEPRECATED: schema changes are now managed by versioned files in pb_migrations/. ' +
+  'Use the PocketBase `migrate up` command. This script remains only for legacy bootstrap compatibility.',
+);
+
 const PB_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
 const [email, password] = process.argv.slice(2);
 
@@ -121,7 +126,8 @@ await ensureCollection('reading_history', {
   fields: [
     { name: 'user', type: 'relation', required: true, collectionId: users.id, maxSelect: 1 },
     { name: 'article', type: 'relation', required: true, collectionId: articles.id, maxSelect: 1 },
-    { name: 'progress', type: 'number' },
+    { name: 'progress', type: 'number', min: 0, max: 100 },
+    { name: 'last_read', type: 'date' },
   ],
   listRule: '@request.auth.id = user.id',
   viewRule: '@request.auth.id = user.id',

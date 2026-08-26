@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import PocketBase from 'pocketbase';
 import { AUTH_COOKIE } from '@/lib/auth-cookies';
+import { getPocketBaseServerUrl } from '@/lib/pocketbase-url';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -19,9 +20,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const pb = new PocketBase(
-      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
-    );
+    const pb = new PocketBase(getPocketBaseServerUrl());
 
     // تبادل code — فقط با code معتبر
     const auth = await pb.collection('users').authWithOAuth2({

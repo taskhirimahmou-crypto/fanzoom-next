@@ -1,6 +1,7 @@
 // src/app/api/comments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerPocketBase } from '@/lib/auth-cookies';
+import { recordTrustedRecommendationEventBestEffort } from '@/lib/recommender/trusted-events';
 
 export async function POST(req: NextRequest) {
   const pb = await getServerPocketBase();
@@ -19,13 +20,23 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
 
   try {
-    await pb.collection('comments').create({
+    const comment = await pb.collection('comments').create({
       user: pb.authStore.record.id,
       article: articleId,
       content: text,
       status: 'pending',
       autodate: now, // فیلد تاریخِ واقعیِ این collection
     });
+    await recordTrustedRecommendationEventBestEffort(
+      {
+        idempotencyKey: `comment:${comment.id}`,
+        articleId,
+        eventType: 'comment',
+        surface: 'article',
+        occurredAt: now,
+      },
+      pb.authStore.record.id,
+    );
     return NextResponse.json({ ok: true });
   } catch (e) {
     const resp = (e as { response?: { data?: unknown } })?.response?.data;

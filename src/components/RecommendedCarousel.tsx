@@ -4,8 +4,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { SecondaryCard } from '@/components/SecondaryCard';
 import { Icon } from '@/components/Icon';
 import type { Article } from '@/lib/articles-server';
+import { RecommendationImpressionBoundary } from '@/components/RecommendationImpressionBoundary';
+import { RecommendationServedReporter } from '@/components/RecommendationServedReporter';
+import { BASELINE_RECOMMENDATION_ALGORITHM_VERSION } from '@/lib/recommendations/baseline';
 
-export function RecommendedCarousel({ articles }: { articles: Article[] }) {
+export function RecommendedCarousel({
+  articles,
+  feedId,
+  algorithmVersion,
+  personalizationEnabled,
+}: {
+  articles: Article[];
+  feedId: string;
+  algorithmVersion: typeof BASELINE_RECOMMENDATION_ALGORITHM_VERSION;
+  personalizationEnabled: boolean;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -40,17 +53,43 @@ export function RecommendedCarousel({ articles }: { articles: Article[] }) {
   };
 
   return (
-    <div className="relative mt-6">
+    <div
+      className="relative mt-6"
+      data-feed-id={feedId}
+      data-algorithm-version={algorithmVersion}
+    >
+      <RecommendationServedReporter
+        feedId={feedId}
+        surface="home"
+        algorithmVersion={algorithmVersion}
+        offset={0}
+        articleIds={articles.map((article) => article.id)}
+        enabled={personalizationEnabled}
+      />
       <div ref={trackRef} className="no-scrollbar overflow-x-auto">
         <div className="flex snap-x snap-mandatory gap-5 pb-2">
-          {articles.map((article) => (
+          {articles.map((article, index) => {
+            const attribution = {
+              feedId,
+              rank: index + 1,
+              surface: 'home' as const,
+              algorithmVersion,
+            };
+            return (
             <div
               key={article.id}
               className="w-[78vw] shrink-0 snap-start sm:w-[300px] md:w-[calc(25%-15px)]"
             >
-              <SecondaryCard article={article} />
+              <RecommendationImpressionBoundary
+                articleId={article.id}
+                attribution={attribution}
+                enabled={personalizationEnabled}
+              >
+                <SecondaryCard article={article} attribution={attribution} />
+              </RecommendationImpressionBoundary>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 // src/lib/auth-cookies.ts
 import { cookies } from 'next/headers';
 import PocketBase from 'pocketbase';
+import { getPocketBaseServerUrl } from './pocketbase-url';
 
 export const AUTH_COOKIE = 'pb_auth';
 
@@ -10,8 +11,7 @@ export const AUTH_COOKIE = 'pb_auth';
  * با authRefresh اطلاعات کاربر (record) را هم از سرور می‌گیرد.
  */
 export async function getServerPocketBase() {
-  const url = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
-  const pb = new PocketBase(url);
+  const pb = new PocketBase(getPocketBaseServerUrl());
   
   const cookieStore = await cookies();
   const authCookie = cookieStore.get(AUTH_COOKIE);

@@ -19,8 +19,13 @@ import { ViewTracker } from '@/components/ViewTracker';
 import { JsonLd } from '@/components/JsonLd';
 import { Breadcrumbs, breadcrumbJsonLd } from '@/components/Breadcrumbs';
 import { sanitizeContent } from '@/lib/sanitize';
+import { parseRecommendationAttribution } from '@/lib/recommender/attribution';
+import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
@@ -70,8 +75,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ArticlePage({ params }: Props) {
+export default async function ArticlePage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const attribution = parseRecommendationAttribution(await searchParams);
   const article = await getArticleBySlug(slug);
   if (!article) notFound();
 
@@ -81,7 +87,16 @@ export default async function ArticlePage({ params }: Props) {
   const pb = await getServerPocketBase();
   const userId = pb.authStore.record?.id ?? null;
   let bookmarked = false;
+  let personalizationEnabled = false;
   if (userId) {
+    try {
+      const freshUser = await pb.collection('users').getOne(userId, {
+        fields: 'personalizationEnabled',
+      });
+      personalizationEnabled = isPersonalizationEnabled(freshUser);
+    } catch {
+      personalizationEnabled = false;
+    }
     try {
       await pb.collection('bookmarks').getFirstListItem(
         pb.filter('user = {:uid} && article = {:aid}', {
@@ -239,7 +254,13 @@ export default async function ArticlePage({ params }: Props) {
                 initialBookmarked={bookmarked}
                 signedIn={!!userId}
               />
-              <ShareButton />
+              <ShareButton
+                articleId={article.id}
+                title={article.title}
+                signedIn={!!userId}
+                personalizationEnabled={personalizationEnabled}
+                attribution={attribution}
+              />
             </span>
           </div>
         </Reveal>
@@ -258,10 +279,17 @@ export default async function ArticlePage({ params }: Props) {
 
         {/* محتوای مقاله */}
         <div
+          id={`article-body-${article.id}`}
           className="article-content mt-10"
           dangerouslySetInnerHTML={{ __html: sanitizeContent(article.content) }}
         />
-        <ReadingTracker articleId={article.id} signedIn={!!userId} />
+        <ReadingTracker
+          articleId={article.id}
+          signedIn={!!userId}
+          personalizationEnabled={personalizationEnabled}
+          articleElementId={`article-body-${article.id}`}
+          attribution={attribution}
+        />
         <CommentsSection
           articleId={article.id}
           signedIn={!!userId}

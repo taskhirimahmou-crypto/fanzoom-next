@@ -5,6 +5,10 @@ import { Icon } from '@/components/Icon';
 import { allCategories, findCategoryBySlug } from '@/lib/categories';
 import { getImageUrl, relativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
+import {
+  recommendationArticleHref,
+  type RecommendationAttribution,
+} from '@/lib/recommender/attribution';
 
 const toneStyle = (tone: string) =>
   ({ '--c': `var(--cat-${tone})` }) as CSSProperties;
@@ -13,11 +17,17 @@ const catOf = (slug: string) => findCategoryBySlug(slug) ?? allCategories[0];
 const toPersianDigits = (n: number) =>
   n.toString().replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 
-export function SecondaryCard({ article }: { article: Article }) {
+export function SecondaryCard({
+  article,
+  attribution,
+}: {
+  article: Article;
+  attribution?: RecommendationAttribution;
+}) {
   const cat = catOf(article.category);
   return (
     <Link
-      href={`/article/${article.slug}`}
+      href={recommendationArticleHref(article.slug, attribution)}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-1 transition-all duration-300 ease-standard hover:-translate-y-1 hover:shadow-3"
     >
       <ArticleVisual

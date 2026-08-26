@@ -60,6 +60,19 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
+            <Icon name="tune" className="text-2xl text-primary" />
+            شخصی‌سازی اختیاری پیشنهادها
+          </h2>
+          <p className="mt-3 leading-8 text-on-surface-variant">
+            برای کاربران واردشده، ثبت نمایش پیشنهاد، تعامل با آن و کیفیت مطالعه فقط پس از فعال‌سازی صریح
+            گزینه‌ی «بهبود شخصی پیشنهادها» انجام می‌شود. این داده‌ها برای بهبود داخلی پیشنهادها استفاده
+            می‌شوند، به کاربران مهمان نسبت داده نمی‌شوند و از صفحه‌ی پروفایل در هر زمان قابل غیرفعال‌سازی‌اند.
+            با غیرفعال‌سازی، ثبت رخدادهای جدید فوراً متوقف می‌شود.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-on-surface">
             <Icon name="comment" className="text-2xl text-primary" />
             نظرات کاربران
           </h2>

@@ -5,7 +5,7 @@ import { getServerPocketBase } from '@/lib/auth-cookies';
 import { safeRelativeTime } from '@/lib/articles';
 import type { Article } from '@/lib/articles-server';
 import { resolveImage } from '@/lib/articles-server';
-import type { ReadingHistoryResponse } from '@/lib/pb-types';
+import { listReadingHistory } from '@/lib/history/history-service';
 import { Reveal } from '@/components/Reveal';
 import { HistoryRow } from '@/components/HistoryRow';
 import { Icon } from '@/components/Icon';
@@ -25,16 +25,12 @@ export default async function HistoryPage() {
   // ۱. خواندن رکوردهای تاریخچه (استفاده از expand در query برای جلوگیری از خطای N+1)
   let entries: HistoryEntry[] = [];
   try {
-    const res = await pb.collection('history').getFullList<ReadingHistoryResponse<{ article: Article }>>({
-      filter: pb.filter('user = {:uid}', { uid: userId }),
-      expand: 'article',
-    });
+    const res = await listReadingHistory<Article>(pb, userId);
 
     // ۲. خواندن مقاله‌ی هر رکورد و مرتب‌سازی در سرور
     const loaded = res.map((h) => {
       const article = h.expand?.article;
-      // Using type assertion because pocketbase typegen might not have exactly matching last_read property
-      const lastRead = (h as unknown as { last_read: string }).last_read || h.updated;
+      const lastRead = h.last_read || h.updated;
       if (!article) return null;
       return { article: resolveImage(article), lastRead } as HistoryEntry;
     });

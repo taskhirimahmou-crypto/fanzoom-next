@@ -1,16 +1,13 @@
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import type { CSSProperties } from 'react';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { Icon } from '@/components/Icon';
 import { InterestsPicker } from '@/components/InterestsPicker';
 import { LogoutButton } from '@/components/LogoutButton';
-import { findCategoryBySlug } from '@/lib/categories';
+import { PersonalizationToggle } from '@/components/PersonalizationToggle';
+import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 
 export const metadata: Metadata = { title: 'پروفایل من' };
-
-const toneStyle = (tone: string) =>
-  ({ '--c': `var(--cat-${tone})` }) as CSSProperties;
 
 export default async function ProfilePage() {
   const pb = await getServerPocketBase();
@@ -28,6 +25,7 @@ export default async function ProfilePage() {
   // record تازه و کامل از PocketBase (authStore فقط فیلدهای پایه را دارد)
 const freshUser = (await pb.collection('users').getOne(record.id)) as {
   interests?: string[];
+  personalizationEnabled?: boolean;
 };
 
   const initial = (record.displayName || record.email || 'ک')[0];
@@ -84,6 +82,10 @@ const freshUser = (await pb.collection('users').getOne(record.id)) as {
 <div className="mt-6">
 <InterestsPicker initialInterests={freshUser.interests ?? []} />
 </div>
+
+        <PersonalizationToggle
+          initialEnabled={isPersonalizationEnabled(freshUser)}
+        />
 
         {/* حساب */}
         <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 shadow-1 sm:flex-row sm:items-center">

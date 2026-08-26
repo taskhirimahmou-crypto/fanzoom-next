@@ -12,6 +12,11 @@ import { formatViews, relativeTime } from '@/lib/articles';
 import { getImageUrl } from '@/lib/articles';
 import { SecondaryCard } from '@/components/SecondaryCard';
 import { RecommendedCarousel } from '@/components/RecommendedCarousel';
+import {
+  BASELINE_RECOMMENDATION_ALGORITHM_VERSION,
+  createBaselineFeedId,
+} from '@/lib/recommendations/baseline';
+import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 
 
 
@@ -219,13 +224,16 @@ export default async function HomePage() {
 
 // ── مقالات پیشنهادی بر اساس علاقه‌مندی‌ها ──
 let recommended: Article[] = [];
+let personalizationEnabled = false;
 const user = await getCurrentUser();
 if (user) {
   try {
     const pb = await getServerPocketBase();
     const fullUser = (await pb.collection('users').getOne(user.id)) as {
       interests?: string[];
+      personalizationEnabled?: boolean;
     };
+    personalizationEnabled = isPersonalizationEnabled(fullUser);
     if (fullUser.interests && fullUser.interests.length > 0) {
       recommended = await getRecommendedArticles(fullUser.interests, 10, 0);
     }
@@ -235,6 +243,7 @@ if (user) {
 }
   
 
+  const recommendationFeedId = createBaselineFeedId();
   const featuredArticle = featured ?? latest[0] ?? null;
   const secondaryArticles = featured ? secondary : latest.slice(1, 3);
   const breakingNews = latest.map((a) => a.title);
@@ -312,7 +321,12 @@ if (user) {
       </Link>
     </div>
 
-    <RecommendedCarousel articles={recommended} />
+    <RecommendedCarousel
+      articles={recommended}
+      feedId={recommendationFeedId}
+      algorithmVersion={BASELINE_RECOMMENDATION_ALGORITHM_VERSION}
+      personalizationEnabled={personalizationEnabled}
+    />
   </section>
 )}
 
