@@ -1,0 +1,20 @@
+{
+  "health.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "recommendation-events.visitor": { "capacity": 240, "windowSeconds": 60, "layer": "visitor" },
+  "recommendation-events.user": { "capacity": 120, "windowSeconds": 60, "layer": "user" },
+  "served.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "served.user": { "capacity": 30, "windowSeconds": 60, "layer": "user" },
+  "recommended.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "recommended.user": { "capacity": 30, "windowSeconds": 60, "layer": "user" },
+  "history.visitor": { "capacity": 120, "windowSeconds": 60, "layer": "visitor" },
+  "history.user": { "capacity": 60, "windowSeconds": 60, "layer": "user" },
+  "comments.visitor": { "capacity": 20, "windowSeconds": 60, "layer": "visitor" },
+  "comments.user": { "capacity": 10, "windowSeconds": 60, "layer": "user" },
+  "bookmarks.visitor": { "capacity": 40, "windowSeconds": 60, "layer": "visitor" },
+  "bookmarks.user": { "capacity": 20, "windowSeconds": 60, "layer": "user" },
+  "views.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "admin-observability.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "admin-observability.user": { "capacity": 30, "windowSeconds": 60, "layer": "user" },
+  "trusted-events.user": { "capacity": 120, "windowSeconds": 60, "layer": "user" },
+  "_internal.cleanup-probe": { "capacity": 1, "windowSeconds": 1, "layer": "visitor" }
+}

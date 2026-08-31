@@ -1,0 +1,86 @@
+name: fanzoom-rate-limit-test
+
+x-web: &web
+  build:
+    context: .
+    dockerfile: docker/next.Dockerfile
+  env_file:
+    - .env.docker.local
+  environment:
+    FANZOOM_LOCAL_DOCKER: "true"
+    FANZOOM_LOCAL_PB_PORT: "8190"
+    NEXT_PUBLIC_POCKETBASE_URL: "http://127.0.0.1:8190"
+    POCKETBASE_INTERNAL_URL: "http://pocketbase:8090"
+    NEXT_TELEMETRY_DISABLED: "1"
+    OBSERVABILITY_LOG_FILE: "/app/.local-observability/server.jsonl"
+    SHARED_RATE_LIMIT_MODE: "${SHARED_RATE_LIMIT_MODE:-enforce}"
+    SHARED_RATE_LIMIT_HOOK_SECRET: "${SHARED_RATE_LIMIT_HOOK_SECRET:?set by local test runner}"
+    RATE_LIMIT_KEY_SECRET: "${RATE_LIMIT_KEY_SECRET:?set by local test runner}"
+  depends_on:
+    setup:
+      condition: service_completed_successfully
+  volumes:
+    - ./src:/app/src
+    - ./pb_hooks:/app/pb_hooks:ro
+    - rate_limit_node_modules:/app/node_modules
+    - rate_limit_observability:/app/.local-observability
+
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: docker/pocketbase.Dockerfile
+      args:
+        PB_VERSION: "0.40.0"
+    env_file:
+      - .env.docker.local
+    environment:
+      SHARED_RATE_LIMIT_HOOK_SECRET: "${SHARED_RATE_LIMIT_HOOK_SECRET:?set by local test runner}"
+      SHARED_RATE_LIMIT_HOOK_SECRET_PREVIOUS: "${SHARED_RATE_LIMIT_HOOK_SECRET_PREVIOUS:?set by local test runner}"
+    ports:
+      - "127.0.0.1:8190:8090"
+    volumes:
+      - rate_limit_pb_data:/pb/pb_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/api/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  setup:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+    env_file:
+      - .env.docker.local
+    environment:
+      ALLOW_LOCAL_SEED: "true"
+      FANZOOM_LOCAL_DOCKER: "false"
+      NEXT_PUBLIC_POCKETBASE_URL: "http://pocketbase:8090"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    command: ["/bin/sh", "-ec", "node scripts/seed-articles.mjs && node scripts/bootstrap-local-user.mjs"]
+
+  web1:
+    <<: *web
+  web2:
+    <<: *web
+  web3:
+    <<: *web
+
+  proxy:
+    image: nginx:1.29-alpine
+    depends_on:
+      - web1
+      - web2
+      - web3
+    ports:
+      - "127.0.0.1:3100:8080"
+    volumes:
+      - ./docker/nginx-rate-limit-test.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  rate_limit_pb_data:
+  rate_limit_node_modules:
+  rate_limit_observability:

@@ -26,7 +26,7 @@ type ObservabilityRouteDependencies = {
   authorize: (context: ServerRequestContext) => Promise<RequireAppAdminResult>;
   load: (
     filters: ObservabilityFilters,
-    options: { requestId: string },
+    options: { requestId: string; permit: Extract<RequireAppAdminResult, { ok: true }>['permit'] },
   ) => ReturnType<typeof loadObservabilityDashboardData>;
   now: () => Date;
 };
@@ -78,6 +78,7 @@ export async function handleObservabilityGet(
       algorithmVersion: parsed.filters.algorithmVersion,
     }, {
       requestId: context.requestId,
+      permit: access.permit,
     });
     return observedJson(context, data, { headers: PRIVATE_HEADERS });
   } catch (error) {

@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server';
-import { AUTH_COOKIE, getServerPocketBase } from '@/lib/auth-cookies';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getAdminPocketBase } from '@/lib/pocketbase-admin';
-import { FixedWindowRateLimiter } from '@/lib/rate-limit';
 import { ingestRecommendationEvent } from '@/lib/recommender/event-service';
 import { PocketBaseRecommendationEventRepository } from '@/lib/recommender/pocketbase-repository';
 import { readPersonalizationEnabled } from '@/lib/personalization/consent';
-import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 import {
   beginServerRequest,
   logRequestEvent,
@@ -13,10 +11,11 @@ import {
   type RequestLogFields,
   type ServerRequestContext,
 } from '@/lib/observability/request-context';
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
-const ingestionRateLimiter = new FixedWindowRateLimiter(120, 60_000);
-const requestRateLimiter = new FixedWindowRateLimiter(240, 60_000);
-const globalRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
+const sharedBackedLimiter = {
+  consume: () => ({ allowed: true as const, retryAfterSeconds: 0, remaining: Number.MAX_SAFE_INTEGER }),
+};
 
 function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
   logRequestEvent(context, 'warn', 'rate_limit_exceeded', 429, {
@@ -32,12 +31,6 @@ function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
 
 export async function POST(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/recommendation-events');
-  const globalLimit = globalRequestRateLimiter.consume('recommendation-events-global');
-  if (!globalLimit.allowed) return rateLimited(observation, globalLimit.retryAfterSeconds);
-  const requestLimit = requestRateLimiter.consume(
-    preAuthRateLimitKey('recommendation-events', req.cookies.get(AUTH_COOKIE)?.value),
-  );
-  if (!requestLimit.allowed) return rateLimited(observation, requestLimit.retryAfterSeconds);
 
   try {
     const userPb = await getServerPocketBase(observation.requestId);
@@ -47,6 +40,17 @@ export async function POST(req: NextRequest) {
         errorCode: 'unauthorized',
       });
     }
+
+    const sharedLimit = await acquireSharedRateLimit(
+      req,
+      observation,
+      ['recommendation-events.visitor', 'recommendation-events.user'],
+      { userId: record.id, visitorId: `authenticated:${record.id}` },
+    );
+    const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+    if (sharedBlocked) return sharedBlocked;
+    if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+    const permit = sharedLimit.permit;
 
     const body = await req.json().catch(() => null);
     const input = body && typeof body === 'object' && !Array.isArray(body)
@@ -59,10 +63,10 @@ export async function POST(req: NextRequest) {
         : undefined,
     };
     const result = await ingestRecommendationEvent(body, record.id, {
-      rateLimiter: ingestionRateLimiter,
+      rateLimiter: sharedBackedLimiter,
       isPersonalizationEnabled: () => readPersonalizationEnabled(userPb, record.id as string),
       getRepository: async () => {
-        const adminPb = await getAdminPocketBase(observation.requestId);
+        const adminPb = await getAdminPocketBase(observation.requestId, permit);
         return new PocketBaseRecommendationEventRepository(adminPb);
       },
     });

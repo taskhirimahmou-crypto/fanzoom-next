@@ -1,6 +1,8 @@
 import { open } from 'node:fs/promises';
 import { isAbsolute, normalize } from 'node:path';
 import type PocketBase from 'pocketbase';
+import type { SharedRateLimitPermit } from '../shared-rate-limit/types';
+import { readSharedRateLimitMetrics } from '../shared-rate-limit/core';
 import { getAdminPocketBase } from '../pocketbase-admin';
 import { getPocketBaseServerUrl } from '../pocketbase-url';
 import { checkFanzoomHealth } from './health';
@@ -139,18 +141,19 @@ export async function readBoundedLocalStructuredLogs(
 
 export async function loadObservabilityDashboardData(
   filters: ObservabilityFilters,
-  options: { requestId?: string; now?: Date; pb?: PocketBase } = {},
+  options: { requestId?: string; now?: Date; pb?: PocketBase; permit?: SharedRateLimitPermit } = {},
 ): Promise<ObservabilityDashboardData> {
   assertLocalObservabilityRuntime();
   const now = options.now ?? new Date();
-  const pb = options.pb ?? await getAdminPocketBase(options.requestId);
+  const pb = options.pb ?? await getAdminPocketBase(options.requestId, options.permit as SharedRateLimitPermit);
   const windowDuration = filters.window === '24h' ? 24 : filters.window === '7d' ? 168 : 720;
   const start = new Date(now.getTime() - windowDuration * 60 * 60 * 1000).toISOString();
   const end = now.toISOString();
-  const [events, logs, health] = await Promise.all([
+  const [events, logs, health, sharedRateLimitState] = await Promise.all([
     readBoundedRecommendationEvents(pb, start, end),
     readBoundedLocalStructuredLogs(),
     checkFanzoomHealth(pb),
+    readSharedRateLimitMetrics().catch(() => null),
   ]);
 
   const base = aggregateObservability(events.rows, logs.rows, {
@@ -165,6 +168,7 @@ export async function loadObservabilityDashboardData(
     logsAvailable: logs.available,
     eventLimit: OBSERVABILITY_EVENT_LIMIT,
     logByteLimit: OBSERVABILITY_LOG_BYTE_LIMIT,
+    sharedRateLimitState,
   }) as ObservabilityDashboardData;
 
   if (
@@ -187,5 +191,6 @@ export async function loadObservabilityDashboardData(
     logsAvailable: logs.available,
     eventLimit: OBSERVABILITY_EVENT_LIMIT,
     logByteLimit: OBSERVABILITY_LOG_BYTE_LIMIT,
+    sharedRateLimitState,
   }) as ObservabilityDashboardData;
 }

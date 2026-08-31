@@ -6,13 +6,23 @@ import {
   logRequestEvent,
   observedJson,
 } from '@/lib/observability/request-context';
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/health');
   try {
-    const pb = await getAdminPocketBase(observation.requestId);
+    const localTestVisitor = process.env.FANZOOM_LOCAL_DOCKER === 'true'
+      ? req.headers.get('x-fanzoom-test-visitor') ?? undefined
+      : undefined;
+    const limit = await acquireSharedRateLimit(req, observation, ['health.visitor'], {
+      visitorId: localTestVisitor ? `local-test:${localTestVisitor}` : undefined,
+    });
+    const blocked = sharedRateLimitResponse(observation, limit);
+    if (blocked) return blocked;
+    if (!limit.permit) throw new Error('shared_rate_limit_permit_missing');
+    const pb = await getAdminPocketBase(observation.requestId, limit.permit);
     const health = await checkFanzoomHealth(pb);
     if (!health.healthy) {
       logRequestEvent(

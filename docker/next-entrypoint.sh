@@ -15,6 +15,10 @@ if [ "${FANZOOM_LOCAL_DOCKER:-}" = "true" ]; then
     echo "Refusing to start local Docker with a non-local internal PocketBase URL." >&2
     exit 1
   fi
+
+  : "${VIEW_RATE_LIMIT_SECRET:?VIEW_RATE_LIMIT_SECRET is required for local shared limiter tests}"
+  export SHARED_RATE_LIMIT_HOOK_SECRET="${SHARED_RATE_LIMIT_HOOK_SECRET:-${VIEW_RATE_LIMIT_SECRET}}"
+  export RATE_LIMIT_KEY_SECRET="${RATE_LIMIT_KEY_SECRET:-${VIEW_RATE_LIMIT_SECRET}}"
 fi
 
 exec "$@"

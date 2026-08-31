@@ -18,7 +18,7 @@ export type ViewCountResult =
 
 type ViewCountDependencies = {
   counter: AtomicViewCounter;
-  burstLimiter: Limiter;
+  burstLimiter?: Limiter;
   dedupeLimiter: Limiter;
   nowMs?: number;
 };
@@ -49,9 +49,11 @@ export async function countArticleView(
   if (!isPocketBaseRecordId(articleId)) return { kind: 'invalid' };
 
   const nowMs = dependencies.nowMs ?? Date.now();
-  const burst = dependencies.burstLimiter.consume(visitorKey, nowMs);
-  if (!burst.allowed) {
-    return { kind: 'rate_limited', retryAfterSeconds: burst.retryAfterSeconds };
+  if (dependencies.burstLimiter) {
+    const burst = dependencies.burstLimiter.consume(visitorKey, nowMs);
+    if (!burst.allowed) {
+      return { kind: 'rate_limited', retryAfterSeconds: burst.retryAfterSeconds };
+    }
   }
 
   const dedupeKey = `${visitorKey}:${articleId}`;
@@ -63,7 +65,7 @@ export async function countArticleView(
     return { kind: 'counted', views };
   } catch (error) {
     // A transient backend error should not suppress a later legitimate retry.
-    dependencies.burstLimiter.reset(visitorKey);
+    dependencies.burstLimiter?.reset(visitorKey);
     dependencies.dedupeLimiter.reset(dedupeKey);
     throw error;
   }

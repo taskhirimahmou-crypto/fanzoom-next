@@ -151,6 +151,15 @@ function runMigration(app: MockApp, suffix: string): void {
 }
 
 describe('PocketBase migration contract', () => {
+  it('creates the shared limiter as idempotent internal SQL tables, not Record API collections', () => {
+    const migration = readMigration('create_shared_rate_limiter.js');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS fanzoom_rate_limit_buckets');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS fanzoom_rate_limit_decisions');
+    expect(migration).toContain('PRIMARY KEY (policy, key_hash)');
+    expect(migration).not.toContain('new Collection');
+    expect(migration).not.toMatch(/DROP TABLE|app\.delete\s*\(/);
+  });
+
   it('bootstraps dependencies on a fresh database without destructive down migrations', () => {
     const migration = readMigration('bootstrap_core_schema.js');
     expect(migration).toContain('name: "users"');

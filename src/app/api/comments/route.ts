@@ -1,48 +1,32 @@
 // src/app/api/comments/route.ts
 import { NextRequest } from 'next/server';
-import { AUTH_COOKIE, requireUser } from '@/lib/auth-cookies';
+import { requireUser } from '@/lib/auth-cookies';
 import { getAdminPocketBase } from '@/lib/pocketbase-admin';
 import { isPocketBaseRecordId } from '@/lib/pocketbase-id';
-import { FixedWindowRateLimiter } from '@/lib/rate-limit';
-import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 import { recordTrustedRecommendationEventBestEffort } from '@/lib/recommender/trusted-events';
 import {
   beginServerRequest,
   finishServerResponse,
   logRequestEvent,
   observedJson,
-  type ServerRequestContext,
 } from '@/lib/observability/request-context';
-
-const commentRequestRateLimiter = new FixedWindowRateLimiter(20, 60_000);
-const globalCommentRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
-const commentUserRateLimiter = new FixedWindowRateLimiter(10, 60_000);
-
-function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
-  logRequestEvent(context, 'warn', 'rate_limit_exceeded', 429, {
-    errorCode: 'comment_rate_limited',
-  });
-  return observedJson(
-    context,
-    { error: 'rate_limited', retryAfterSeconds },
-    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    { errorCode: 'comment_rate_limited' },
-  );
-}
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
 export async function POST(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/comments');
-  const globalLimit = globalCommentRequestRateLimiter.consume('comments-global');
-  if (!globalLimit.allowed) return rateLimited(observation, globalLimit.retryAfterSeconds);
-  const requestLimit = commentRequestRateLimiter.consume(
-    preAuthRateLimitKey('comments', req.cookies.get(AUTH_COOKIE)?.value),
-  );
-  if (!requestLimit.allowed) return rateLimited(observation, requestLimit.retryAfterSeconds);
 
   const auth = await requireUser(observation.requestId);
   if (!auth.ok) return finishServerResponse(observation, auth.response, { errorCode: 'unauthorized' });
-  const userLimit = commentUserRateLimiter.consume(auth.user.id);
-  if (!userLimit.allowed) return rateLimited(observation, userLimit.retryAfterSeconds);
+  const sharedLimit = await acquireSharedRateLimit(
+    req,
+    observation,
+    ['comments.visitor', 'comments.user'],
+    { userId: auth.user.id, visitorId: `authenticated:${auth.user.id}` },
+  );
+  const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+  if (sharedBlocked) return sharedBlocked;
+  if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+  const permit = sharedLimit.permit;
 
   const payload = await req.json().catch(() => null);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -76,7 +60,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
 
   try {
-    const adminPb = await getAdminPocketBase(observation.requestId);
+    const adminPb = await getAdminPocketBase(observation.requestId, permit);
     const comment = await adminPb.collection('comments').create({
       user: auth.user.id,
       article: articleId,
@@ -93,7 +77,7 @@ export async function POST(req: NextRequest) {
         occurredAt: now,
       },
       auth.user.id,
-      { requestId: observation.requestId, route: observation.route },
+      { requestId: observation.requestId, route: observation.route, permit },
     );
     return observedJson(observation, { ok: true });
   } catch {

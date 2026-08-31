@@ -17,6 +17,7 @@ export type ServerRequestContext = {
   route: string;
   startedAtMs: number;
   now: () => number;
+  requestHeaders?: { get: (name: string) => string | null };
 };
 
 export function resolveRequestId(value: string | null | undefined): string {
@@ -35,6 +36,7 @@ export function beginServerRequest(
     route,
     startedAtMs: now(),
     now,
+    requestHeaders: request.headers,
   };
 }
 

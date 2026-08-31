@@ -15,10 +15,10 @@ import {
   logRequestEvent,
   observedJson,
 } from '@/lib/observability/request-context';
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
-const burstLimiter = new FixedWindowRateLimiter(60, 60_000);
-// These windows are per Next.js process. Move them to shared storage when horizontal
-// enforcement is required; the atomic PocketBase increment remains correct either way.
+// This limiter is only the ten-minute duplicate-view guard. Security quota is
+// authoritative in the shared PocketBase limiter above.
 const viewDedupeLimiter = new FixedWindowRateLimiter(1, 10 * 60_000);
 
 type PocketBaseError = { status?: number };
@@ -52,13 +52,19 @@ export async function POST(req: NextRequest) {
       secret,
       trustedProxyHeader: process.env.VIEW_TRUSTED_PROXY_IP_HEADER,
     });
+    const sharedLimit = await acquireSharedRateLimit(req, observation, ['views.visitor'], {
+      visitorId: visitor.visitorKey,
+    });
+    const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+    if (sharedBlocked) return withVisitorCookie(sharedBlocked, visitor.setCookieValue);
+    if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+    const permit = sharedLimit.permit;
 
     const result = await countArticleView(id, visitor.visitorKey, {
-      burstLimiter,
       dedupeLimiter: viewDedupeLimiter,
       counter: {
         async increment(articleId) {
-          const pb = await getAdminPocketBase(observation.requestId);
+          const pb = await getAdminPocketBase(observation.requestId, permit);
           return new PocketBaseAtomicViewCounter(pb).increment(articleId);
         },
       },

@@ -3,6 +3,8 @@ import { ClientResponseError } from 'pocketbase';
 import { requireUser, type RequireUserResult } from '../auth-cookies';
 import { logRequestEvent, type ServerRequestContext } from '../observability/request-context';
 import { getAdminPocketBase } from '../pocketbase-admin';
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '../shared-rate-limit/core';
+import type { SharedRateLimitPermit } from '../shared-rate-limit/types';
 
 export const APP_ADMIN_ROLES = ['owner', 'admin', 'viewer'] as const;
 export type AppAdminRole = (typeof APP_ADMIN_ROLES)[number];
@@ -13,7 +15,7 @@ type AppAdminMembership = {
 };
 
 export type RequireAppAdminResult =
-  | { ok: true; role: AppAdminRole }
+  | { ok: true; role: AppAdminRole; permit: SharedRateLimitPermit }
   | { ok: false; response: NextResponse };
 
 export type RequireAppAdminDependencies = {
@@ -21,6 +23,7 @@ export type RequireAppAdminDependencies = {
   findMembership: (
     userId: string,
     requestId?: string,
+    permit?: SharedRateLimitPermit,
   ) => Promise<AppAdminMembership | null>;
 };
 
@@ -34,8 +37,9 @@ export function isAppAdminRole(value: unknown): value is AppAdminRole {
   return typeof value === 'string' && APP_ADMIN_ROLES.includes(value as AppAdminRole);
 }
 
-async function findMembership(userId: string, requestId?: string): Promise<AppAdminMembership | null> {
-  const pb = await getAdminPocketBase(requestId);
+async function findMembership(userId: string, requestId?: string, permit?: SharedRateLimitPermit): Promise<AppAdminMembership | null> {
+  if (!permit) throw new Error('shared_rate_limit_permit_missing');
+  const pb = await getAdminPocketBase(requestId, permit);
   try {
     return await pb.collection('app_admins').getFirstListItem(
       pb.filter('user = {:userId}', { userId }),
@@ -92,11 +96,34 @@ export async function requireAppAdmin(
     return auth;
   }
 
+  let permit: SharedRateLimitPermit;
+  if (dependencies === defaultDependencies) {
+    const shared = await acquireSharedRateLimit(
+      { headers: context.requestHeaders ?? { get: () => null } },
+      context,
+      ['admin-observability.visitor', 'admin-observability.user'],
+      { userId: auth.user.id, visitorId: `authenticated:${auth.user.id}` },
+    );
+    const blocked = sharedRateLimitResponse(context, shared);
+    if (blocked || !shared.permit) return {
+      ok: false,
+      response: NextResponse.json(
+        { error: shared.kind === 'denied' ? 'rate_limited' : 'admin_access_unavailable' },
+        { status: shared.kind === 'denied' ? 429 : 503, headers: blocked?.headers },
+      ),
+    };
+    permit = shared.permit;
+  } else {
+    // Tests inject the complete membership boundary and never obtain a
+    // PocketBase superuser client. This marker remains valid only in that path.
+    permit = { decisionId: 'injected-test-boundary', mode: 'shadow' } as SharedRateLimitPermit;
+  }
+
   let membership: AppAdminMembership | null;
   try {
     // The identity comes only from the refreshed server session. No user or role
     // supplied by the request is accepted by this API.
-    membership = await dependencies.findMembership(auth.user.id, context.requestId);
+    membership = await dependencies.findMembership(auth.user.id, context.requestId, permit);
   } catch {
     return denied(context, 503, 'app_admin_lookup_failed');
   }
@@ -113,5 +140,5 @@ export async function requireAppAdmin(
     return denied(context, 403, 'app_admin_role_insufficient');
   }
 
-  return { ok: true, role: membership.role };
+  return { ok: true, role: membership.role, permit };
 }

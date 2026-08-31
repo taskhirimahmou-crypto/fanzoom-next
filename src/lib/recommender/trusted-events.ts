@@ -10,10 +10,12 @@ import { PocketBaseRecommendationEventRepository } from './pocketbase-repository
 import { getAdminPocketBase } from '../pocketbase-admin';
 import { readPersonalizationEnabled } from '../personalization/consent';
 import { writeStructuredServerLog } from '../observability/logger';
+import type { SharedRateLimitPermit } from '../shared-rate-limit/types';
 
 type TrustedEventObservability = {
   requestId?: string;
   route?: string;
+  permit: SharedRateLimitPermit;
 };
 
 function logTrustedEventFailure(
@@ -35,10 +37,10 @@ function logTrustedEventFailure(
 export async function recordTrustedRecommendationEventBestEffort(
   event: RecommendationEventInput,
   userId: string,
-  options: { legacyIdempotencyKeys?: readonly string[] } & TrustedEventObservability = {},
+  options: { legacyIdempotencyKeys?: readonly string[] } & TrustedEventObservability,
 ): Promise<boolean> {
   try {
-    const pb = await getAdminPocketBase(options.requestId);
+    const pb = await getAdminPocketBase(options.requestId, options.permit);
     if (!(await readPersonalizationEnabled(pb, userId))) return false;
     const repository = new PocketBaseRecommendationEventRepository(pb);
     for (const legacyKey of options.legacyIdempotencyKeys ?? []) {
@@ -79,11 +81,11 @@ export function trustedEventMatchesStored(
 export async function recordTrustedRecommendationEventBatchBestEffort(
   events: readonly RecommendationEventInput[],
   userId: string,
-  observability: TrustedEventObservability = {},
+  observability: TrustedEventObservability,
 ): Promise<void> {
   if (events.length === 0) return;
   try {
-    const pb = await getAdminPocketBase(observability.requestId);
+    const pb = await getAdminPocketBase(observability.requestId, observability.permit);
     if (!(await readPersonalizationEnabled(pb, userId))) return;
     const result = await recordTrustedRecommendationEventBatch(events, userId, {
       repository: new PocketBaseRecommendationEventRepository(pb),
@@ -175,7 +177,8 @@ export async function recordServedRecommendationBatch(
   if (input.articles.length === 0) {
     return { kind: 'completed' as const, total: 0, created: 0, duplicates: 0, failures: [] };
   }
-  const pb = await getAdminPocketBase(input.observability?.requestId);
+  if (!input.observability) throw new Error('shared_rate_limit_permit_missing');
+  const pb = await getAdminPocketBase(input.observability.requestId, input.observability.permit);
   if (!(await readPersonalizationEnabled(pb, input.userId))) {
     return { kind: 'disabled' as const };
   }

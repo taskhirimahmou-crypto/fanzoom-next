@@ -1,4 +1,5 @@
 import { open } from 'node:fs/promises';
+import { createHash, createHmac } from 'node:crypto';
 import PocketBase from 'pocketbase';
 import {
   aggregateObservability,
@@ -101,6 +102,19 @@ async function readEvents(pb, start, end) {
   return { rows, truncated: totalItems > rows.length };
 }
 
+async function readSharedRateLimitState() {
+  const secret = process.env.SHARED_RATE_LIMIT_HOOK_SECRET || process.env.VIEW_RATE_LIMIT_SECRET;
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) return null;
+  const path = '/api/fanzoom/rate-limit/metrics';
+  const timestamp = String(Date.now());
+  const canonical = `v1\nGET\n${path}\n${timestamp}\n${createHash('sha256').update('').digest('hex')}`;
+  const signature = createHmac('sha256', secret).update(canonical).digest('hex');
+  const response = await fetch(`${localPocketBaseUrl()}${path}`, {
+    headers: { 'X-Fanzoom-Timestamp': timestamp, 'X-Fanzoom-Signature': signature },
+  });
+  return response.ok ? response.json() : null;
+}
+
 async function main() {
   const email = process.env.POCKETBASE_ADMIN_EMAIL || process.env.PB_SUPERUSER_EMAIL;
   const password = process.env.POCKETBASE_ADMIN_PASSWORD || process.env.PB_SUPERUSER_PASSWORD;
@@ -118,6 +132,7 @@ async function main() {
   if (!parsed.ok) throw new Error(parsed.errorCode);
   const events = await readEvents(pb, parsed.filters.window.start, parsed.filters.window.end);
   const logs = await readStructuredLogs(logFileArgument());
+  const sharedRateLimitState = await readSharedRateLimitState();
   const dashboard = aggregateObservability(events.rows, logs.rows, {
     window: parsed.filters.window.key,
     surface: parsed.filters.surface,
@@ -130,6 +145,7 @@ async function main() {
     logsAvailable: Boolean(logFileArgument()),
     eventLimit: EVENT_LIMIT,
     logByteLimit: LOG_BYTE_LIMIT,
+    sharedRateLimitState,
   });
   if (
     parsed.filters.algorithmVersion !== 'all' &&

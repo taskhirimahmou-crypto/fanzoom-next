@@ -1,6 +1,6 @@
 // src/app/api/history/route.ts
 import { NextRequest } from 'next/server';
-import { AUTH_COOKIE, requireUser } from '@/lib/auth-cookies';
+import { requireUser } from '@/lib/auth-cookies';
 import { deleteReadingHistory, upsertReadingHistory } from '@/lib/history/history-service';
 import { isPocketBaseRecordId } from '@/lib/pocketbase-id';
 import {
@@ -13,49 +13,33 @@ import {
   PocketBaseServedAttributionRepository,
   validateTrustedOpenAttribution,
 } from '@/lib/recommender/trusted-attribution';
-import { FixedWindowRateLimiter } from '@/lib/rate-limit';
-import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 import {
   beginServerRequest,
   finishServerResponse,
   logRequestEvent,
   observedJson,
   type RequestLogFields,
-  type ServerRequestContext,
 } from '@/lib/observability/request-context';
-
-const historyRequestRateLimiter = new FixedWindowRateLimiter(120, 60_000);
-const globalHistoryRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
-const historyUserRateLimiter = new FixedWindowRateLimiter(60, 60_000);
-
-function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
-  logRequestEvent(context, 'warn', 'rate_limit_exceeded', 429, {
-    errorCode: 'history_rate_limited',
-  });
-  return observedJson(
-    context,
-    { error: 'rate_limited', retryAfterSeconds },
-    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    { errorCode: 'history_rate_limited' },
-  );
-}
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
 // ثبت یا به‌روزرسانی «آخرین مطالعه» (upsert دستی)
 export async function POST(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/history');
-  const globalLimit = globalHistoryRequestRateLimiter.consume('history-post-global');
-  if (!globalLimit.allowed) return rateLimited(observation, globalLimit.retryAfterSeconds);
-  const requestLimit = historyRequestRateLimiter.consume(
-    preAuthRateLimitKey('history-post', req.cookies.get(AUTH_COOKIE)?.value),
-  );
-  if (!requestLimit.allowed) return rateLimited(observation, requestLimit.retryAfterSeconds);
 
   const auth = await requireUser(observation.requestId);
   if (!auth.ok) return finishServerResponse(observation, auth.response, { errorCode: 'unauthorized' });
   const { pb } = auth;
   const uid = auth.user.id;
-  const userLimit = historyUserRateLimiter.consume(uid);
-  if (!userLimit.allowed) return rateLimited(observation, userLimit.retryAfterSeconds);
+  const sharedLimit = await acquireSharedRateLimit(
+    req,
+    observation,
+    ['history.visitor', 'history.user'],
+    { userId: uid, visitorId: `authenticated:${uid}` },
+  );
+  const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+  if (sharedBlocked) return sharedBlocked;
+  if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+  const permit = sharedLimit.permit;
 
   const body = (await req.json().catch(() => null)) as {
     articleId?: unknown;
@@ -81,7 +65,7 @@ export async function POST(req: NextRequest) {
     let attribution;
     if (candidateAttribution) {
       try {
-        const adminPb = await getAdminPocketBase(observation.requestId);
+        const adminPb = await getAdminPocketBase(observation.requestId, permit);
         attribution = await validateTrustedOpenAttribution(
           candidateAttribution,
           uid,
@@ -122,6 +106,7 @@ export async function POST(req: NextRequest) {
           : [],
         requestId: observation.requestId,
         route: observation.route,
+        permit,
       },
     );
     const logFields: RequestLogFields = attribution

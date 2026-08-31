@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { AUTH_COOKIE, getServerPocketBase } from '@/lib/auth-cookies';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getRecommendedArticles } from '@/lib/articles-server';
 import {
   BASELINE_RECOMMENDATION_ALGORITHM_VERSION,
@@ -7,41 +7,16 @@ import {
 } from '@/lib/recommendations/baseline';
 import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 import { recordServedRecommendationBatchBestEffort } from '@/lib/recommender/trusted-events';
-import { FixedWindowRateLimiter } from '@/lib/rate-limit';
-import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 import {
   beginServerRequest,
   logRequestEvent,
   observedJson,
-  type ServerRequestContext,
 } from '@/lib/observability/request-context';
-
-const recommendedRequestRateLimiter = new FixedWindowRateLimiter(60, 60_000);
-const globalRecommendedRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
-const recommendedUserRateLimiter = new FixedWindowRateLimiter(30, 60_000);
-
-function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
-  logRequestEvent(context, 'warn', 'rate_limit_exceeded', 429, {
-    errorCode: 'recommended_rate_limited',
-  });
-  return observedJson(
-    context,
-    { error: 'rate_limited', retryAfterSeconds },
-    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    { errorCode: 'recommended_rate_limited' },
-  );
-}
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
 export async function GET(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/recommended');
   try {
-    const globalLimit = globalRecommendedRequestRateLimiter.consume('recommended-global');
-    if (!globalLimit.allowed) return rateLimited(observation, globalLimit.retryAfterSeconds);
-    const requestLimit = recommendedRequestRateLimiter.consume(
-      preAuthRateLimitKey('recommended', req.cookies.get(AUTH_COOKIE)?.value),
-    );
-    if (!requestLimit.allowed) return rateLimited(observation, requestLimit.retryAfterSeconds);
-
     const pb = await getServerPocketBase(observation.requestId);
     const record = pb.authStore.record as { id: string } | null;
     const model = pb.authStore.model as { collectionName?: string } | null;
@@ -54,8 +29,16 @@ export async function GET(req: NextRequest) {
         { errorCode: 'unauthorized' },
       );
     }
-    const userLimit = recommendedUserRateLimiter.consume(record.id);
-    if (!userLimit.allowed) return rateLimited(observation, userLimit.retryAfterSeconds);
+    const sharedLimit = await acquireSharedRateLimit(
+      req,
+      observation,
+      ['recommended.visitor', 'recommended.user'],
+      { userId: record.id, visitorId: `authenticated:${record.id}` },
+    );
+    const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+    if (sharedBlocked) return sharedBlocked;
+    if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+    const permit = sharedLimit.permit;
 
     const requestedOffset = Number(req.nextUrl.searchParams.get('offset') || 0);
     const requestedLimit = Number(req.nextUrl.searchParams.get('limit') || 10);
@@ -102,7 +85,11 @@ export async function GET(req: NextRequest) {
         surface: 'for_you',
         algorithmVersion: BASELINE_RECOMMENDATION_ALGORITHM_VERSION,
         offset,
-        observability: { requestId: observation.requestId, route: observation.route },
+        observability: {
+          requestId: observation.requestId,
+          route: observation.route,
+          permit,
+        },
       });
       if (served.kind === 'partial_failure') {
         logRequestEvent(observation, 'error', 'served_partial_failure', 200, {

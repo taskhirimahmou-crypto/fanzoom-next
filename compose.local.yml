@@ -13,6 +13,7 @@ services:
       - "127.0.0.1:${FANZOOM_LOCAL_PB_PORT:-8090}:8090"
     volumes:
       - fanzoom_pb_data:/pb/pb_data
+      - ./pb_hooks:/pb/pb_hooks:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/api/health"]
       interval: 3s
@@ -54,6 +55,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       WATCHPACK_POLLING: "true"
       OBSERVABILITY_LOG_FILE: /app/.local-observability/server.jsonl
+      SHARED_RATE_LIMIT_MODE: "${SHARED_RATE_LIMIT_MODE:-enforce}"
     depends_on:
       pocketbase:
         condition: service_healthy

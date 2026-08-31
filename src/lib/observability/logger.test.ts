@@ -23,6 +23,9 @@ describe('structured server logger', () => {
       feedId: 'feed_12345678',
       algorithmVersion: 'baseline:v1',
       errorCode: null,
+      rateLimitPolicy: null,
+      rateLimitLayer: null,
+      rateLimitOutcome: null,
     });
   });
 

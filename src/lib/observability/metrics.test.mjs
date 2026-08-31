@@ -134,4 +134,76 @@ describe('canonical observability metrics', () => {
     expect(serialized).not.toContain('secret-token');
     expect(serialized).not.toContain('private-cookie');
   });
+
+  it('aggregates shared limiter decisions, failures, latency and cleanup state without identifiers', () => {
+    const logs = [
+      {
+        timestamp: '2026-08-31T11:00:00.000Z',
+        eventName: 'shared_rate_limit_decision',
+        rateLimitPolicy: 'comments.user',
+        rateLimitLayer: 'user',
+        rateLimitOutcome: 'allowed',
+      },
+      {
+        timestamp: '2026-08-31T11:00:01.000Z',
+        eventName: 'shared_rate_limit_decision',
+        rateLimitPolicy: 'comments.user',
+        rateLimitLayer: 'user',
+        rateLimitOutcome: 'denied',
+        keyHash: 'must-not-be-projected',
+      },
+      {
+        timestamp: '2026-08-31T11:00:02.000Z',
+        eventName: 'shared_rate_limit_check_completed',
+        durationMs: 10,
+      },
+      {
+        timestamp: '2026-08-31T11:00:03.000Z',
+        eventName: 'shared_rate_limit_check_completed',
+        durationMs: 30,
+      },
+      {
+        timestamp: '2026-08-31T11:00:04.000Z',
+        eventName: 'shared_rate_limit_backend_error',
+        requestId: '550e8400-e29b-41d4-a716-446655440000',
+      },
+      {
+        timestamp: '2026-08-31T11:00:05.000Z',
+        eventName: 'shared_rate_limit_fail_closed',
+        requestId: '550e8400-e29b-41d4-a716-446655440001',
+      },
+      {
+        timestamp: '2026-08-31T11:00:06.000Z',
+        eventName: 'shared_rate_limit_retry_deduplicated',
+        requestId: '550e8400-e29b-41d4-a716-446655440002',
+      },
+    ];
+    const result = aggregateObservability([], logs, {
+      now: NOW,
+      window: '24h',
+      sharedRateLimitState: {
+        activeBuckets: 7,
+        cleanupBacklog: 2,
+        cleanupDeleted: 11,
+        oldestExpiredAgeMs: 4_000,
+      },
+    });
+
+    expect(result.system.sharedRateLimit).toMatchObject({
+      allowed: 1,
+      denied: 1,
+      byPolicy: [{ policy: 'comments.user', layer: 'user', allowed: 1, denied: 1 }],
+      backendErrors: 1,
+      failClosed: 1,
+      retryDeduplicated: 1,
+      averageHookLatencyMs: 20,
+      p95HookLatencyMs: 30,
+      hookLatencySamples: 2,
+      activeBuckets: 7,
+      cleanupBacklog: 2,
+      cleanupDeleted: 11,
+      oldestExpiredAgeMs: 4_000,
+    });
+    expect(JSON.stringify(result)).not.toContain('must-not-be-projected');
+  });
 });

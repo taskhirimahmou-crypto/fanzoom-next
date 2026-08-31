@@ -13,6 +13,9 @@ export type StructuredLogInput = {
   feedId?: string;
   algorithmVersion?: string;
   errorCode?: string;
+  rateLimitPolicy?: string;
+  rateLimitLayer?: string;
+  rateLimitOutcome?: string;
 };
 
 export type StructuredServerLog = {
@@ -26,6 +29,9 @@ export type StructuredServerLog = {
   feedId: string | null;
   algorithmVersion: string | null;
   errorCode: string | null;
+  rateLimitPolicy: string | null;
+  rateLimitLayer: string | null;
+  rateLimitOutcome: string | null;
 };
 
 const SAFE_NAME = /^[a-z0-9][a-z0-9:._/-]*$/i;
@@ -66,6 +72,9 @@ export function createStructuredServerLog(
     feedId: optionalIdentifier(input.feedId, 64),
     algorithmVersion: optionalIdentifier(input.algorithmVersion, 96),
     errorCode: optionalIdentifier(input.errorCode, 96),
+    rateLimitPolicy: optionalIdentifier(input.rateLimitPolicy, 96),
+    rateLimitLayer: optionalIdentifier(input.rateLimitLayer, 32),
+    rateLimitOutcome: optionalIdentifier(input.rateLimitOutcome, 32),
   };
 }
 

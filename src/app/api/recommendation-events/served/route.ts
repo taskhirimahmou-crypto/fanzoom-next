@@ -1,43 +1,19 @@
 import { NextRequest } from 'next/server';
-import { AUTH_COOKIE, getServerPocketBase } from '@/lib/auth-cookies';
+import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getRecommendedArticles } from '@/lib/articles-server';
 import { readPersonalizationEnabled } from '@/lib/personalization/consent';
-import { FixedWindowRateLimiter } from '@/lib/rate-limit';
 import { validateServedBatchRequest } from '@/lib/recommender/served-batch';
 import { recordServedRecommendationBatch } from '@/lib/recommender/trusted-events';
-import { preAuthRateLimitKey } from '@/lib/request-rate-limit';
 import {
   beginServerRequest,
   logRequestEvent,
   observedJson,
   type RequestLogFields,
-  type ServerRequestContext,
 } from '@/lib/observability/request-context';
-
-const servedRateLimiter = new FixedWindowRateLimiter(30, 60_000);
-const servedRequestRateLimiter = new FixedWindowRateLimiter(60, 60_000);
-const globalServedRequestRateLimiter = new FixedWindowRateLimiter(10_000, 60_000, 1);
-
-function rateLimited(context: ServerRequestContext, retryAfterSeconds: number) {
-  logRequestEvent(context, 'warn', 'rate_limit_exceeded', 429, {
-    errorCode: 'served_rate_limited',
-  });
-  return observedJson(
-    context,
-    { error: 'rate_limited', retryAfterSeconds },
-    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    { errorCode: 'served_rate_limited' },
-  );
-}
+import { acquireSharedRateLimit, sharedRateLimitResponse } from '@/lib/shared-rate-limit/core';
 
 export async function POST(req: NextRequest) {
   const observation = beginServerRequest(req, '/api/recommendation-events/served');
-  const globalLimit = globalServedRequestRateLimiter.consume('recommendation-events-served-global');
-  if (!globalLimit.allowed) return rateLimited(observation, globalLimit.retryAfterSeconds);
-  const requestLimit = servedRequestRateLimiter.consume(
-    preAuthRateLimitKey('recommendation-events-served', req.cookies.get(AUTH_COOKIE)?.value),
-  );
-  if (!requestLimit.allowed) return rateLimited(observation, requestLimit.retryAfterSeconds);
 
   try {
     const pb = await getServerPocketBase(observation.requestId);
@@ -47,8 +23,16 @@ export async function POST(req: NextRequest) {
         errorCode: 'unauthorized',
       });
     }
-    const rateLimit = servedRateLimiter.consume(record.id);
-    if (!rateLimit.allowed) return rateLimited(observation, rateLimit.retryAfterSeconds);
+    const sharedLimit = await acquireSharedRateLimit(
+      req,
+      observation,
+      ['served.visitor', 'served.user'],
+      { userId: record.id, visitorId: `authenticated:${record.id}` },
+    );
+    const sharedBlocked = sharedRateLimitResponse(observation, sharedLimit);
+    if (sharedBlocked) return sharedBlocked;
+    if (!sharedLimit.permit) throw new Error('shared_rate_limit_permit_missing');
+    const permit = sharedLimit.permit;
 
     if (!(await readPersonalizationEnabled(pb, record.id))) {
       logRequestEvent(observation, 'warn', 'consent_rejection', 403, {
@@ -124,6 +108,7 @@ export async function POST(req: NextRequest) {
       observability: {
         requestId: observation.requestId,
         route: observation.route,
+        permit,
       },
     });
     if (result.kind === 'disabled') {

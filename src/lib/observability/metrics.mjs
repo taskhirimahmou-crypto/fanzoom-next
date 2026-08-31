@@ -377,6 +377,22 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
     Number(log.statusCode) < 300
   )).length;
   const emptyFeeds = uniqueOperationalCount(logs, 'recommended_feed_empty');
+  const rateLimitDecisionLogs = logs.filter((log) => log.eventName === 'shared_rate_limit_decision');
+  const rateLimitChecks = logs.filter((log) => log.eventName === 'shared_rate_limit_check_completed');
+  const rateLimitLatency = rateLimitChecks
+    .map((log) => Number(log.durationMs))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  const rateLimitByPolicyMap = new Map();
+  for (const log of rateLimitDecisionLogs) {
+    const policy = typeof log.rateLimitPolicy === 'string' ? log.rateLimitPolicy : 'unknown_policy';
+    const layer = typeof log.rateLimitLayer === 'string' ? log.rateLimitLayer : 'unknown_layer';
+    const key = `${policy}:${layer}`;
+    if (!rateLimitByPolicyMap.has(key)) rateLimitByPolicyMap.set(key, { policy, layer, allowed: 0, denied: 0 });
+    const row = rateLimitByPolicyMap.get(key);
+    if (log.rateLimitOutcome === 'allowed') row.allowed += 1;
+    else if (log.rateLimitOutcome === 'denied') row.denied += 1;
+  }
+  const limiterState = options.sharedRateLimitState ?? {};
 
   const routeMap = new Map();
   for (const log of completions) {
@@ -480,6 +496,23 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
       atomicViewFailures: uniqueOperationalCount(logs, 'atomic_view_failure'),
       eventValidationFailures: uniqueOperationalCount(logs, 'event_validation_failed'),
       consentRejections: uniqueOperationalCount(logs, 'consent_rejection'),
+      sharedRateLimit: {
+        allowed: rateLimitDecisionLogs.filter((log) => log.rateLimitOutcome === 'allowed').length,
+        denied: rateLimitDecisionLogs.filter((log) => log.rateLimitOutcome === 'denied').length,
+        byPolicy: [...rateLimitByPolicyMap.values()].sort((a, b) => a.policy.localeCompare(b.policy)),
+        backendErrors: uniqueOperationalCount(logs, 'shared_rate_limit_backend_error'),
+        failClosed: uniqueOperationalCount(logs, 'shared_rate_limit_fail_closed'),
+        sqliteBusy: uniqueOperationalCount(logs, 'shared_rate_limit_sqlite_busy'),
+        retryDeduplicated: uniqueOperationalCount(logs, 'shared_rate_limit_retry_deduplicated'),
+        privilegedWithoutSharedLimiter: uniqueOperationalCount(logs, 'privileged_operation_without_shared_limiter'),
+        averageHookLatencyMs: average(rateLimitLatency),
+        p95HookLatencyMs: percentile(rateLimitLatency, 0.95),
+        hookLatencySamples: rateLimitLatency.length,
+        activeBuckets: Number.isFinite(limiterState.activeBuckets) ? limiterState.activeBuckets : null,
+        cleanupBacklog: Number.isFinite(limiterState.cleanupBacklog) ? limiterState.cleanupBacklog : null,
+        cleanupDeleted: Number.isFinite(limiterState.cleanupDeleted) ? limiterState.cleanupDeleted : null,
+        oldestExpiredAgeMs: Number.isFinite(limiterState.oldestExpiredAgeMs) ? limiterState.oldestExpiredAgeMs : null,
+      },
       routeStats,
       recentIncidents: recentIssues,
     },

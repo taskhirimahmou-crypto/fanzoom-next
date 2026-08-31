@@ -293,6 +293,20 @@ function System({ data }: { data: ObservabilityDashboardData }) {
         <MetricCard label="consent rejection" value={count.format(data.system.consentRejections)} unit="درخواست" denominator="logهای consent_rejection" definition="ارسال event در زمانی که personalization کاربر خاموش بوده است." icon="privacy_tip" status={data.system.consentRejections ? 'warn' : 'good'} />
       </section>
       <Panel>
+        <h2 className="text-xl font-black">Shared rate limiter</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">فقط شمارنده‌های aggregate نمایش داده می‌شوند؛ key hash، شناسه‌ی کاربر، IP و secret هرگز وارد پاسخ نیستند.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard label="تصمیم مجاز" value={count.format(data.system.sharedRateLimit.allowed)} unit="bucket decision" denominator="logهای shared limiter در بازه" definition="تعداد bucketهای policy که quota کافی داشته‌اند." icon="check_circle" status="good" />
+          <MetricCard label="تصمیم ردشده" value={count.format(data.system.sharedRateLimit.denied)} unit="bucket decision" denominator="logهای shared limiter در بازه" definition="تعداد bucketهایی که quota نداشته‌اند؛ در enforce به 429 منجر می‌شوند." icon="gpp_bad" status={data.system.sharedRateLimit.denied ? 'warn' : 'good'} />
+          <MetricCard label="p95 latency hook" value={data.system.sharedRateLimit.p95HookLatencyMs === null ? '—' : decimal.format(data.system.sharedRateLimit.p95HookLatencyMs)} unit="ms" denominator={`${count.format(data.system.sharedRateLimit.hookLatencySamples)} check`} definition="صدک ۹۵ زمان رفت‌وبرگشت Next.js تا hook مشترک PocketBase." icon="speed" status="neutral" />
+          <MetricCard label="fail-closed" value={count.format(data.system.sharedRateLimit.failClosed)} unit="درخواست" denominator="شکست backend در mode enforce" definition="درخواست privileged که به‌علت unavailable بودن limiter با 503 متوقف شده است." icon="shield" status={data.system.sharedRateLimit.failClosed ? 'bad' : 'good'} />
+          <MetricCard label="active buckets" value={data.system.sharedRateLimit.activeBuckets === null ? '—' : count.format(data.system.sharedRateLimit.activeBuckets)} unit="bucket" denominator="snapshot امضاشده‌ی hook" definition="bucketهای منقضی‌نشده‌ی فعلی در SQLite." icon="database" status="neutral" />
+          <MetricCard label="cleanup backlog" value={data.system.sharedRateLimit.cleanupBacklog === null ? '—' : count.format(data.system.sharedRateLimit.cleanupBacklog)} unit="row منقضی" denominator="bucket و decision منقضی" definition="رکوردهای منتظر پاک‌سازی batch بعدی." icon="history" status={data.system.sharedRateLimit.cleanupBacklog ? 'warn' : 'good'} />
+          <MetricCard label="SQLite busy" value={count.format(data.system.sharedRateLimit.sqliteBusy)} unit="رخداد" denominator="logهای limiter در بازه" definition="تعداد contentionهای SQLITE_BUSY مشاهده‌شده." icon="data_alert" status={data.system.sharedRateLimit.sqliteBusy ? 'bad' : 'good'} />
+          <MetricCard label="بدون shared limit" value={count.format(data.system.sharedRateLimit.privilegedWithoutSharedLimiter)} unit="تلاش" denominator="همه‌ی درخواست‌های superuser" definition="guard نهایی getAdminPocketBase؛ مقدار قابل قبول همیشه صفر است." icon="gpp_bad" status={data.system.sharedRateLimit.privilegedWithoutSharedLimiter ? 'bad' : 'good'} />
+        </div>
+      </Panel>
+      <Panel>
         <h2 className="text-xl font-black">latency و خطا براساس route</h2>
         <p className="mt-1 text-sm text-on-surface-variant">مرتب‌شده با اولویت تعداد 5xx؛ همه‌ی اعداد در بازه‌ی انتخابی هستند.</p>
         <div className="mt-4 overflow-x-auto rounded-2xl border border-outline-variant">

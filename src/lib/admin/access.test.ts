@@ -76,10 +76,14 @@ describe('requireAppAdmin', () => {
       const deps = dependencies({ role, enabled: true }, authenticated('refreshed123456'));
       const result = await requireAppAdmin(context, {}, deps);
 
-      expect(result).toEqual({ ok: true, role });
+      expect(result).toEqual(expect.objectContaining({ ok: true, role }));
       expect(deps.requireUser).toHaveBeenCalledWith(context.requestId);
-      expect(deps.findMembership).toHaveBeenCalledWith('refreshed123456', context.requestId);
-      expect(Object.keys(result)).toEqual(['ok', 'role']);
+      expect(deps.findMembership).toHaveBeenCalledWith(
+        'refreshed123456',
+        context.requestId,
+        expect.objectContaining({ mode: 'shadow' }),
+      );
+      expect(Object.keys(result)).toEqual(['ok', 'role', 'permit']);
     },
   );
 
@@ -122,7 +126,11 @@ describe('requireAppAdmin', () => {
     const result = await requireAppAdmin(context, {}, deps);
 
     expect(result.ok).toBe(false);
-    expect(findMembership).toHaveBeenCalledWith('normaluser12345', context.requestId);
+    expect(findMembership).toHaveBeenCalledWith(
+      'normaluser12345',
+      context.requestId,
+      expect.objectContaining({ mode: 'shadow' }),
+    );
   });
 
   it('enforces role hierarchy without logging user identifiers or email', async () => {

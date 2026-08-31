@@ -105,6 +105,23 @@ export type ObservabilityDashboardData = {
     atomicViewFailures: number;
     eventValidationFailures: number;
     consentRejections: number;
+    sharedRateLimit: {
+      allowed: number;
+      denied: number;
+      byPolicy: Array<{ policy: string; layer: string; allowed: number; denied: number }>;
+      backendErrors: number;
+      failClosed: number;
+      sqliteBusy: number;
+      retryDeduplicated: number;
+      privilegedWithoutSharedLimiter: number;
+      averageHookLatencyMs: number | null;
+      p95HookLatencyMs: number | null;
+      hookLatencySamples: number;
+      activeBuckets: number | null;
+      cleanupBacklog: number | null;
+      cleanupDeleted: number | null;
+      oldestExpiredAgeMs: number | null;
+    };
     routeStats: Array<{
       route: string;
       responses: number;
