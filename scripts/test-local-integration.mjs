@@ -1,5 +1,9 @@
 import PocketBase from 'pocketbase';
 import { createHmac } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 const appUrl = process.env.LOCAL_APP_URL;
 const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL;
@@ -73,6 +77,19 @@ const adminPb = new PocketBase(localPb);
 adminPb.autoCancellation(false);
 await adminPb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
 
+const healthRequestId = crypto.randomUUID();
+const health = await jsonRequest('/api/health', {
+  headers: { 'x-request-id': healthRequestId },
+});
+assert(health.response.status === 200, 'Next.js health endpoint is not healthy');
+assert(health.body?.status === 'ok', 'Public health response has an unexpected status');
+assert(Object.keys(health.body).length === 1, 'Public health response exposed internal details');
+assert(
+  health.response.headers.get('x-request-id') === healthRequestId,
+  'Health request ID was not propagated',
+);
+pass('public health is minimal and propagates request ID');
+
 const articles = await adminPb.collection('articles').getFullList();
 assert(articles.length >= 3, 'At least three local articles are required');
 const article = articles[0];
@@ -108,6 +125,68 @@ const cookieMatch = setCookie.match(/pb_auth=([^;]+)/);
 assert(cookieMatch, 'Authentication cookie was not returned');
 const cookie = `pb_auth=${cookieMatch[1]}`;
 pass('authenticated session cookie is issued');
+
+const userPb = new PocketBase(localPb);
+await userPb.collection('users').authWithPassword(testEmail, testPassword);
+
+for (let attempt = 0; attempt < 2; attempt += 1) {
+  const provisioning = await execFileAsync(
+    process.execPath,
+    [
+      'scripts/provision-local-app-admin.mjs',
+      '--user-id',
+      testUser.id,
+      '--role',
+      'viewer',
+    ],
+    { env: process.env },
+  );
+  assert(
+    provisioning.stdout.includes('role=viewer, enabled=true'),
+    'Local admin provisioning did not return its non-sensitive success status',
+  );
+  assert(!provisioning.stdout.includes(testUser.id), 'Provisioning output exposed the user ID');
+  assert(!provisioning.stdout.includes(testEmail), 'Provisioning output exposed the user email');
+}
+
+const appAdminRows = await adminPb.collection('app_admins').getFullList({
+  filter: adminPb.filter('user = {:userId}', { userId: testUser.id }),
+});
+assert(appAdminRows.length === 1, 'Idempotent provisioning created duplicate app admin rows');
+assert(appAdminRows[0].role === 'viewer' && appAdminRows[0].enabled === true, 'Provisioned role is invalid');
+
+for (const operation of ['list', 'create', 'update', 'delete']) {
+  let status = 0;
+  try {
+    if (operation === 'list') await userPb.collection('app_admins').getList(1, 1);
+    if (operation === 'create') {
+      await userPb.collection('app_admins').create({ user: testUser.id, role: 'owner', enabled: true });
+    }
+    if (operation === 'update') {
+      await userPb.collection('app_admins').update(appAdminRows[0].id, { role: 'owner' });
+    }
+    if (operation === 'delete') {
+      await userPb.collection('app_admins').delete(appAdminRows[0].id);
+    }
+  } catch (error) {
+    status = error?.status ?? 0;
+  }
+  assert(status === 403, `Direct PocketBase app_admins ${operation} was not blocked`);
+}
+
+let duplicateMembershipStatus = 0;
+try {
+  await adminPb.collection('app_admins').create({
+    user: testUser.id,
+    role: 'admin',
+    enabled: true,
+  });
+} catch (error) {
+  duplicateMembershipStatus = error?.status ?? 0;
+}
+assert(duplicateMembershipStatus === 400, 'Unique app admin membership was not enforced');
+await adminPb.collection('app_admins').update(appAdminRows[0].id, { enabled: false });
+pass('app admin provisioning is idempotent, private, unique and disableable');
 
 const beforeDisabledEvents = await adminPb.collection('recommendation_events').getFullList({
   filter: adminPb.filter('userId = {:userId}', { userId: testUser.id }),
@@ -145,8 +224,16 @@ assert(enabledUser.personalizationEnabled === true, 'Consent bool was not persis
 assert(Boolean(enabledUser.personalizationConsentAt), 'Consent timestamp was not persisted');
 pass('explicit consent is persisted with timestamp');
 
-const feed = await jsonRequest(`/api/recommended?limit=3&feedId=${feedId}`, { cookie });
+const feedRequestId = crypto.randomUUID();
+const feed = await jsonRequest(`/api/recommended?limit=3&feedId=${feedId}`, {
+  cookie,
+  headers: { 'x-request-id': feedRequestId },
+});
 assert(feed.response.status === 200, 'Recommendation feed failed after consent');
+assert(
+  feed.response.headers.get('x-request-id') === feedRequestId,
+  'Recommendation request ID was not propagated',
+);
 assert(feed.body.feedId === feedId, 'Feed ID was not preserved');
 assert(feed.body.algorithmVersion === algorithmVersion, 'Baseline algorithm version changed');
 assert(feed.body.personalizationEnabled === true, 'Consent state missing from feed response');
@@ -593,8 +680,6 @@ const bookmarkRemove = await jsonRequest('/api/bookmarks', {
   body: JSON.stringify({ articleId: feed.body.articles[2].id }),
 });
 assert(bookmarkRemove.response.status === 200, 'Bookmark remove failed');
-const userPb = new PocketBase(localPb);
-await userPb.collection('users').authWithPassword(testEmail, testPassword);
 let directCommentStatus = 0;
 try {
   await userPb.collection('comments').create({

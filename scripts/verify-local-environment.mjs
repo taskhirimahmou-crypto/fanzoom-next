@@ -31,6 +31,7 @@ const requiredCollections = [
   'comments',
   'reading_history',
   'recommendation_events',
+  'app_admins',
 ];
 
 for (const name of requiredCollections) {
@@ -46,6 +47,24 @@ for (const rule of ['listRule', 'viewRule', 'createRule', 'updateRule', 'deleteR
 const surfaceField = (recommendationEvents?.fields ?? []).find((field) => field.name === 'surface');
 assert(surfaceField?.values?.includes('direct'), 'recommendation_events.surface must allow direct');
 
+const appAdmins = collections.find((collection) => collection.name === 'app_admins');
+for (const rule of ['listRule', 'viewRule', 'createRule', 'updateRule', 'deleteRule']) {
+  assert(appAdmins?.[rule] === null, `app_admins.${rule} must be private`);
+}
+const appAdminFieldNames = new Set((appAdmins?.fields ?? []).map((field) => field.name));
+for (const name of ['user', 'role', 'enabled']) {
+  assert(appAdminFieldNames.has(name), `Missing app_admins.${name} field`);
+}
+const appAdminRole = (appAdmins?.fields ?? []).find((field) => field.name === 'role');
+assert(
+  JSON.stringify(appAdminRole?.values) === JSON.stringify(['owner', 'admin', 'viewer']),
+  'app_admins.role values do not match the access contract',
+);
+assert(
+  (appAdmins?.indexes ?? []).some((index) => String(index).includes('idx_app_admins_user_unique')),
+  'app_admins.user must be unique',
+);
+
 const users = collections.find((collection) => collection.name === 'users');
 const userFieldNames = new Set((users?.fields ?? []).map((field) => field.name));
 assert(userFieldNames.has('personalizationEnabled'), 'Missing personalizationEnabled field');
@@ -59,4 +78,4 @@ const testUser = await pb.collection('users').getFirstListItem(
 );
 assert(testUser.personalizationEnabled === false, 'Local test user must start opted out');
 
-console.log('✅ Local PocketBase schema, privacy rules, seed data, and consent default verified.');
+console.log('✅ Local PocketBase schema, private admin rules, seed data, and consent default verified.');
