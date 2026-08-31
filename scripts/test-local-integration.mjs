@@ -129,6 +129,33 @@ pass('authenticated session cookie is issued');
 const userPb = new PocketBase(localPb);
 await userPb.collection('users').authWithPassword(testEmail, testPassword);
 
+const anonymousDashboardApi = await jsonRequest('/api/admin/observability?window=24h&surface=all&algorithm=all');
+assert(anonymousDashboardApi.response.status === 401, 'Anonymous observability API access must return 401');
+const anonymousDashboardPage = await fetch(`${localApp}/admin/observability`, { redirect: 'manual' });
+const anonymousDashboardHtml = await anonymousDashboardPage.text();
+assert(
+  (anonymousDashboardPage.status >= 300 && anonymousDashboardPage.status < 400) ||
+    (anonymousDashboardPage.status === 200 && anonymousDashboardHtml.includes('/login?redirect=/admin/observability')),
+  'Anonymous observability page access must redirect to login',
+);
+assert(!anonymousDashboardHtml.includes('مرکز پایش فن‌زوم'), 'Anonymous redirect response rendered dashboard content');
+const normalUserDashboard = await jsonRequest(
+  '/api/admin/observability?window=24h&surface=all&algorithm=all',
+  { cookie },
+);
+assert(normalUserDashboard.response.status === 403, 'Normal user observability access must return 403');
+const normalUserDashboardPage = await fetch(`${localApp}/admin/observability`, {
+  headers: { Cookie: cookie },
+  redirect: 'manual',
+});
+const normalUserDashboardHtml = await normalUserDashboardPage.text();
+assert(
+  normalUserDashboardPage.status === 403 || normalUserDashboardHtml.includes('دسترسی مدیریتی ندارید'),
+  'Normal user observability page access must render the 403 boundary',
+);
+assert(!normalUserDashboardHtml.includes('مرکز پایش فن‌زوم'), 'Normal user 403 response rendered dashboard content');
+pass('observability dashboard blocks anonymous and normal users');
+
 for (let attempt = 0; attempt < 2; attempt += 1) {
   const provisioning = await execFileAsync(
     process.execPath,
@@ -154,6 +181,36 @@ const appAdminRows = await adminPb.collection('app_admins').getFullList({
 });
 assert(appAdminRows.length === 1, 'Idempotent provisioning created duplicate app admin rows');
 assert(appAdminRows[0].role === 'viewer' && appAdminRows[0].enabled === true, 'Provisioned role is invalid');
+
+const viewerDashboard = await jsonRequest(
+  '/api/admin/observability?window=24h&surface=all&algorithm=all',
+  { cookie },
+);
+assert(viewerDashboard.response.status === 200, 'Viewer observability API access failed');
+assert(viewerDashboard.body?.schemaVersion === 'observability-dashboard-v1', 'Dashboard aggregate schema is missing');
+assert(viewerDashboard.body?.datasetKind === 'test', 'Local dashboard data is not labeled as test data');
+assert(
+  viewerDashboard.response.headers.get('cache-control')?.includes('private') &&
+    viewerDashboard.response.headers.get('cache-control')?.includes('no-store'),
+  'Dashboard response is not private and no-store',
+);
+const dashboardSerialized = JSON.stringify(viewerDashboard.body);
+for (const forbiddenField of ['userId', 'email', 'authorization', 'cookie', 'token', 'rawEvents']) {
+  assert(!dashboardSerialized.toLowerCase().includes(forbiddenField.toLowerCase()), `Dashboard exposed ${forbiddenField}`);
+}
+const viewerPage = await fetch(`${localApp}/admin/observability`, { headers: { Cookie: cookie } });
+assert(viewerPage.status === 200, 'Viewer observability page access failed');
+const viewerPageHtml = await viewerPage.text();
+assert(!viewerPageHtml.includes(testEmail), 'Viewer dashboard HTML exposed the account email');
+assert(!viewerPageHtml.includes(testUser.id), 'Viewer dashboard HTML exposed the raw user ID');
+await adminPb.collection('app_admins').update(appAdminRows[0].id, { role: 'admin' });
+const adminDashboard = await jsonRequest(
+  '/api/admin/observability?window=7d&surface=home&algorithm=all',
+  { cookie },
+);
+assert(adminDashboard.response.status === 200, 'Admin observability API access failed');
+await adminPb.collection('app_admins').update(appAdminRows[0].id, { role: 'viewer' });
+pass('viewer and admin can read only private aggregate observability data');
 
 for (const operation of ['list', 'create', 'update', 'delete']) {
   let status = 0;
@@ -186,6 +243,11 @@ try {
 }
 assert(duplicateMembershipStatus === 400, 'Unique app admin membership was not enforced');
 await adminPb.collection('app_admins').update(appAdminRows[0].id, { enabled: false });
+const disabledAdminDashboard = await jsonRequest(
+  '/api/admin/observability?window=24h&surface=all&algorithm=all',
+  { cookie },
+);
+assert(disabledAdminDashboard.response.status === 403, 'Disabled admin observability access must return 403');
 pass('app admin provisioning is idempotent, private, unique and disableable');
 
 const beforeDisabledEvents = await adminPb.collection('recommendation_events').getFullList({

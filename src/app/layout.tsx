@@ -95,8 +95,6 @@ export default async function RootLayout({
   const auth = await getCurrentUser();
   const user = auth
     ? {
-        id: auth.user.id,
-        email: auth.user.email,
         displayName: auth.user.displayName,
       }
     : null;

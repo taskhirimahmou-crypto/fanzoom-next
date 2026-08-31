@@ -1,6 +1,26 @@
 import type { CSSProperties } from 'react';
 
 export type IconName =
+  | 'monitoring'
+  | 'info'
+  | 'warning'
+  | 'space_dashboard'
+  | 'conversion_path'
+  | 'fact_check'
+  | 'dns'
+  | 'speed'
+  | 'report'
+  | 'timer'
+  | 'inbox'
+  | 'verified'
+  | 'content_copy'
+  | 'link_off'
+  | 'gpp_bad'
+  | 'open_in_new'
+  | 'rule'
+  | 'data_alert'
+  | 'privacy_tip'
+  | 'database'
   | 'refresh'   // ← اضافه شد
   | 'search'
   | 'auto_awesome'   // ← اضافه شد

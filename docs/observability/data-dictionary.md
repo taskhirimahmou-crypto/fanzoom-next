@@ -1,5 +1,11 @@
 # Observability v1 — Data Dictionary
 
+## قرارداد واحد CLI و dashboard
+
+تعریف canonical همه‌ی metricها در `src/lib/observability/metrics.mjs` است. CLI و API خصوصی dashboard هر دو همین تابع pure را اجرا می‌کنند؛ بنابراین یک fixture یکسان باید خروجی عددی یکسان بسازد. بازه‌ها rolling و دقیقاً UTC هستند: `24h` برابر ۲۴ ساعت، `7d` برابر ۱۶۸ ساعت و `30d` برابر ۷۲۰ ساعت تا زمان refresh. هر دو مرز شروع و پایان شامل می‌شوند.
+
+فیلترهای `surface` و `algorithmVersion` فقط funnel توصیه را محدود می‌کنند. metricهای عملیاتی log (مانند 429، 5xx و latency) فقط با بازه‌ی زمانی محدود می‌شوند؛ UI این scope را صریح نمایش می‌دهد تا denominatorها با هم مخلوط نشوند. query رخدادها در صفحه‌های حداکثر ۲۰۰تایی و سقف ۱۰٬۰۰۰ رکورد انجام می‌شود. log محلی نیز به ۵ MiB و ۲۰٬۰۰۰ ردیف آخر محدود است و رسیدن به سقف در پاسخ aggregate علامت می‌خورد.
+
 ## قرارداد structured log
 
 | فیلد | معنی | منبع | استفاده |
@@ -43,6 +49,23 @@
 | `pocketBaseFailures` | تعداد `pocketbase_failure` | structured logs | availability وابستگی |
 | `latency.averageMs` | میانگین duration فقط برای `http_request_completed` | structured logs | روند کلی latency |
 | `latency.p95Ms` | nearest-rank p95 duration | structured logs | tail latency و alert |
+
+## metricهای dashboard و denominator
+
+| نمایش | صورت | مخرج | واحد / نبود نمونه |
+| --- | --- | --- | --- |
+| error rate | پاسخ‌های 5xx | تمام `http_request_completed` در بازه | درصد؛ بدون پاسخ `null` |
+| engaged-read rate | engaged attributed معتبر | open attributed معتبر | درصد؛ بدون open `null` |
+| empty-feed rate | `recommended_feed_empty` یکتا | پاسخ‌های `/api/recommended` | درصد؛ بدون پاسخ feed `null` |
+| data coverage | مجموع served/impression/open/engaged با tuple کامل | تمام eventهای یکتای همین چهار مرحله، direct و attributed | درصد؛ بدون event `null` |
+| conversion هر مرحله | count مرحله‌ی فعلی | count مرحله‌ی قبلی | درصد؛ بدون مرحله‌ی قبلی `null` |
+| p95 latency | نمونه‌ی nearest-rank صدک ۹۵ | `durationMs` معتبر و نامنفی | میلی‌ثانیه؛ بدون نمونه `null` |
+
+`freshness.lastEventAt` آخرین زمان event خوانده‌شده، `lastLogAt` آخرین log معتبر و `lastObservedAt` جدیدترینِ این دو است. `generatedAt` زمان محاسبه است و نباید به‌جای freshness منبع تفسیر شود. `datasetKind=test` یعنی داده از stack محلی Docker آمده و در UI با برچسب «داده‌ی آزمایشی» نمایش داده می‌شود.
+
+## قرارداد خروجی امن dashboard
+
+Browser فقط count، rate، bucket زمانی، نام allowlistشده‌ی route/event/error، status و requestId معتبر UUID را دریافت می‌کند. رکورد خام، `userId`، email، IP، token، cookie، authorization، متن مقاله/نظر و credential PocketBase عضو DTO نیست. `recentIssues` حداکثر ۲۰ ردیف امن و `routeStats` حداکثر ۲۰ route دارد.
 
 ## eventNameهای عملیاتی v1
 

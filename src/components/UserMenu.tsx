@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
 
 export interface CurrentUser {
-  id: string;
-  email: string;
   displayName?: string;
 }
 
@@ -32,7 +30,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
     router.refresh();
   };
 
-  const initial = (user.displayName || user.email || 'ک')[0];
+  const initial = (user.displayName || 'ک')[0];
 
   return (
     <div className="relative" ref={ref}>
@@ -57,7 +55,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
           <p className="truncate text-sm font-bold text-on-surface">
             {user.displayName || 'کاربر فن زوم'}
           </p>
-          <p className="truncate text-xs text-on-surface-variant">{user.email}</p>
+          <p className="truncate text-xs text-on-surface-variant">حساب احراز هویت‌شده</p>
         </div>
         <Link
           href="/profile"

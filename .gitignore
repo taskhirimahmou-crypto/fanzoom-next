@@ -28,3 +28,6 @@ pnpm-debug.log*
 # vercel
 .vercel
 *.tsbuildinfo
+
+# local observability artifacts and screenshots
+/.local-observability/
