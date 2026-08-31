@@ -1,5 +1,6 @@
 {
-  "health.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
+  "_internal.benchmark-allowed": { "capacity": 1000, "windowSeconds": 60, "layer": "visitor" },
+  "_internal.benchmark-saturated": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },
   "recommendation-events.visitor": { "capacity": 240, "windowSeconds": 60, "layer": "visitor" },
   "recommendation-events.user": { "capacity": 120, "windowSeconds": 60, "layer": "user" },
   "served.visitor": { "capacity": 60, "windowSeconds": 60, "layer": "visitor" },

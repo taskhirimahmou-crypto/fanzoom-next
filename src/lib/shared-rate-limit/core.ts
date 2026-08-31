@@ -39,6 +39,13 @@ export function isSharedRateLimitPermit(value: unknown): value is SharedRateLimi
 }
 
 function mode(): SharedRateLimitMode {
+  if (
+    process.env.SHARED_RATE_LIMIT_MODE === 'baseline' &&
+    process.env.FANZOOM_LOCAL_DOCKER === 'true' &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    return 'baseline';
+  }
   return process.env.SHARED_RATE_LIMIT_MODE === 'shadow' ? 'shadow' : 'enforce';
 }
 
@@ -170,6 +177,16 @@ export async function acquireSharedRateLimit(
   if (unique.size !== policyNames.length || policyNames.length < 1 || policyNames.length > 4) {
     return { kind: 'unavailable', errorCode: 'invalid_policy_set', roundTrips: 0 };
   }
+  if (selectedMode === 'baseline') {
+    return {
+      kind: 'allowed',
+      permit: createPermit(decisionId, selectedMode),
+      backendAllowed: true,
+      hookDurationMs: 0,
+      writeCount: 0,
+      roundTrips: 0,
+    };
+  }
   try {
     const buckets = policyNames.map((policy) => {
       const definition = sharedRateLimitPolicies[policy];
@@ -203,12 +220,14 @@ export async function acquireSharedRateLimit(
       }
       return {
         kind: 'allowed', permit: createPermit(decisionId, selectedMode),
+        backendAllowed: body.allowed, hookDurationMs: called.durationMs,
         retryDeduplicated: body.retryDeduplicated, writeCount: body.writeCount,
         retryAfterSeconds: body.retryAfterSeconds, roundTrips: called.roundTrips,
       };
     }
     return {
       kind: 'denied', retryAfterSeconds: Math.max(1, body.retryAfterSeconds || 1),
+      backendAllowed: false, hookDurationMs: called.durationMs,
       retryDeduplicated: body.retryDeduplicated, writeCount: body.writeCount,
       roundTrips: called.roundTrips,
     };

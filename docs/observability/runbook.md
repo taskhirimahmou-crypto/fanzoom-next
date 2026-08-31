@@ -25,7 +25,7 @@ docker compose --env-file .env.docker.local -f compose.local.yml up --build -d
 Invoke-RestMethod http://127.0.0.1:3000/api/health
 ```
 
-پاسخ عمومی فقط `status` دارد. در حالت سالم `200 {"status":"ok"}` و در حالت ناسالم `503 {"status":"unavailable"}` برمی‌گردد. جزئیات داخلی فقط به شکل errorCode محدود در log سرور دیده می‌شوند.
+پاسخ عمومی فقط `status` دارد. در حالت سالم `200 {"status":"ok"}` و در حالت ناسالم `503 {"status":"unavailable"}` برمی‌گردد. این route فقط health API عمومی PocketBase را با `GET` و بدون credential صدا می‌زند؛ هیچ shared limiter bucket، write یا superuser session ایجاد نمی‌کند. flood protection آن در آینده بر عهده‌ی WAF است. جزئیات داخلی فقط به شکل errorCode محدود در log سرور دیده می‌شوند.
 
 برای dashboard، ابتدا کاربر آزمایشی را با راهنمای `docs/admin-access.md` به نقش `viewer` متصل کنید، سپس با همان کاربر وارد شوید و این URL را باز کنید:
 
@@ -58,7 +58,7 @@ docker compose --env-file .env.docker.local -f compose.local.yml logs --no-color
 2. `/api/health` را صدا بزنید. `unavailable` یعنی ابتدا log متناظر با همان `x-request-id` را پیدا کنید.
 3. `errorCode` را بررسی کنید؛ متن exception یا credential عمداً log نمی‌شود.
 4. اگر `pocketbase_unavailable` است، health داخلی PocketBase و شبکه‌ی Compose را بررسی کنید.
-5. اگر `schema_mismatch` است، فقط روی دیتابیس محلی migration status و field/ruleهای مورد انتظار را بررسی کنید. health، ledger داخلی migration را افشا نمی‌کند و اثر نهایی schema را می‌سنجد.
+5. schema mismatch فقط در health عمیق dashboard خصوصی بررسی می‌شود. health عمومی صرفاً availability را می‌سنجد و ledger یا schema داخلی را افشا نمی‌کند.
 6. اگر `served_partial_failure` است، تعداد failure را از پاسخ endpoint و unique indexهای `recommendation_events` بررسی کنید؛ retry با همان idempotencyKey امن است.
 7. اگر `invalid_attribution` رشد کرده، زنجیره‌ی لینک توصیه تا served/open و انقضای ۳۰ دقیقه‌ای served evidence را بررسی کنید.
 8. اگر `atomic_view_failure` دیده شد، health PocketBase و بارگذاری `pb_hooks/atomic_views.pb.js` در image محلی را بررسی کنید. شکست migration در entrypoint با `pocketbase_migration_failure` ثبت می‌شود.
@@ -88,9 +88,9 @@ docker compose --env-file .env.docker.local -f compose.local.yml logs --no-color
 
 - logهای v1 روی stdout هستند؛ بدون نگهداری/ارسال امن، بعد از حذف container قابل بازیابی نیستند.
 - dashboard فقط mirror ساختاریافته‌ی Next.js را می‌خواند؛ stdout عمومی PocketBase و hookهایی که event ساختاریافته‌ی متناظر در Next.js ندارند فعلاً در نمودارها دیده نمی‌شوند.
-- rate limiter و شمارنده‌های عملیاتی process-local هستند و هنوز تصویر چند-instance نمی‌دهند.
+- shared rate limiter بین instanceها داخل PocketBase مشترک است؛ فقط deduplication ده‌دقیقه‌ای views process-local باقی مانده و مرجع quota امنیتی نیست.
 - CLI فقط logهایی را می‌بیند که در فایل ورودی داده شده‌اند؛ نبود فایل یعنی 429، 5xx و latency مقدار صفر/بدون نمونه دارند.
-- health اثر schema مورد انتظار را می‌سنجد، نه تاریخچه‌ی کامل ledger migration.
+- health عمومی فقط availability PocketBase را می‌سنجد؛ schema contract در dashboard خصوصی بررسی می‌شود، نه تاریخچه‌ی کامل ledger migration.
 - داده‌ی client رفتار انسانی را اثبات نمی‌کند؛ consistency سمت سرور فقط جعل ساده و drift را محدود می‌کند.
 - notification، tracing توزیع‌شده، هزینه‌ی query و resource metrics هنوز وجود ندارند.
 - query فعلی برای حجم محلی با سقف ۱۰٬۰۰۰ event مناسب است؛ برای production باید pre-aggregation و index/query budget جدا طراحی شود.

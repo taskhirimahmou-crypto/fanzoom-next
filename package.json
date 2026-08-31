@@ -10,7 +10,8 @@
     "test": "vitest run",
     "admin:provision:local": "node scripts/provision-local-app-admin.mjs",
     "observability:report": "node scripts/observability-report.mjs",
-    "test:shared-rate-limit": "node scripts/test-shared-rate-limit.mjs"
+    "test:shared-rate-limit": "node scripts/test-shared-rate-limit.mjs",
+    "benchmark:shared-rate-limit": "node scripts/benchmark-shared-rate-limit.mjs"
   },
   "dependencies": {
     "material-symbols": "^0.45.9",

@@ -18,6 +18,28 @@ export type FanzoomHealthResult =
   | { healthy: true }
   | { healthy: false; errorCode: 'pocketbase_unavailable' | 'schema_mismatch' };
 
+export async function checkPocketBaseAvailability(
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = 1_500,
+): Promise<FanzoomHealthResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(`${getPocketBaseServerUrl()}/api/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return response.ok
+      ? { healthy: true }
+      : { healthy: false, errorCode: 'pocketbase_unavailable' };
+  } catch {
+    return { healthy: false, errorCode: 'pocketbase_unavailable' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const EXPECTED_SCHEMA = {
   users: ['personalizationEnabled', 'personalizationConsentAt'],
   articles: ['slug', 'views'],
@@ -89,3 +111,4 @@ export async function checkFanzoomHealth(client: HealthProbeClient): Promise<Fan
     return { healthy: false, errorCode: 'schema_mismatch' };
   }
 }
+import { getPocketBaseServerUrl } from '../pocketbase-url';

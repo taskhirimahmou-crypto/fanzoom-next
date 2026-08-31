@@ -1,7 +1,8 @@
-export type SharedRateLimitMode = 'shadow' | 'enforce';
+export type SharedRateLimitMode = 'baseline' | 'shadow' | 'enforce';
 
 export type SharedRateLimitPolicyName =
-  | 'health.visitor'
+  | '_internal.benchmark-allowed'
+  | '_internal.benchmark-saturated'
   | 'recommendation-events.visitor'
   | 'recommendation-events.user'
   | 'served.visitor'
@@ -27,6 +28,8 @@ export type SharedRateLimitPermit = {
 export type SharedRateLimitDecision = {
   kind: 'allowed' | 'denied' | 'unavailable';
   permit?: SharedRateLimitPermit;
+  backendAllowed?: boolean;
+  hookDurationMs?: number;
   retryAfterSeconds?: number;
   errorCode?: string;
   retryDeduplicated?: boolean;

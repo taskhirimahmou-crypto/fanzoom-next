@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkFanzoomHealth, type HealthProbeClient } from './health';
+import { checkFanzoomHealth, checkPocketBaseAvailability, type HealthProbeClient } from './health';
 
 const fields = {
   users: ['personalizationEnabled', 'personalizationConsentAt'],
@@ -45,6 +45,25 @@ function client(overrides: Partial<HealthProbeClient> = {}): HealthProbeClient {
 }
 
 describe('Fanzoom health probe', () => {
+  it('uses the public PocketBase health API without credentials or writes', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('{"code":200}', { status: 200 }));
+    expect(await checkPocketBaseAvailability(fetchImpl)).toEqual({ healthy: true });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    const [url, options] = fetchImpl.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/health$/);
+    expect(options).toMatchObject({ method: 'GET', cache: 'no-store' });
+    expect(options.headers).toBeUndefined();
+    expect(options.body).toBeUndefined();
+  });
+
+  it('reports an unavailable PocketBase from the public read-only probe', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('private transport details'));
+    expect(await checkPocketBaseAvailability(fetchImpl)).toEqual({
+      healthy: false,
+      errorCode: 'pocketbase_unavailable',
+    });
+  });
+
   it('accepts a reachable PocketBase with the expected schema contract', async () => {
     expect(await checkFanzoomHealth(client())).toEqual({ healthy: true });
   });

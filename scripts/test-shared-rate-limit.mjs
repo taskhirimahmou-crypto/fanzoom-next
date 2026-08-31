@@ -44,6 +44,18 @@ async function signedRequest(input, options = {}) {
   });
 }
 
+async function readLimiterMetrics() {
+  const timestamp = String(Date.now());
+  const response = await fetch(`${pbUrl}${metricsPath}`, {
+    headers: {
+      'X-Fanzoom-Timestamp': timestamp,
+      'X-Fanzoom-Signature': signature('GET', metricsPath, timestamp, ''),
+    },
+  });
+  assert(response.status === 200, 'signed limiter metrics failed');
+  return response.json();
+}
+
 function keyHash(seed) {
   return createHmac('sha256', currentSecret).update(seed).digest('hex');
 }
@@ -59,57 +71,24 @@ function localEnvValue(name) {
   return line?.slice(name.length + 1).trim();
 }
 
-function percentile(values, fraction) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)] ?? 0;
-}
-
-async function concurrencyRun({ total, concurrency, cookie, requestId }) {
-  const latencies = [];
-  const upstreams = new Set();
-  let allowed = 0;
-  let denied = 0;
-  let unavailable = 0;
-  const started = performance.now();
-  let next = 0;
-  await Promise.all(Array.from({ length: concurrency }, async () => {
-    while (true) {
-      const index = next++;
-      if (index >= total) return;
-      const requestStarted = performance.now();
-      const response = await fetch(`${appUrl}/api/health`, {
-        cache: 'no-store',
-        headers: {
-          Cookie: `rl_test=${cookie}`,
-          'X-Request-Id': requestId,
-          'X-Fanzoom-Test-Visitor': cookie,
-        },
-      });
-      latencies.push(performance.now() - requestStarted);
-      if (response.status === 200) allowed += 1;
-      else if (response.status === 429) {
-        denied += 1;
-        assert(Number(response.headers.get('Retry-After')) >= 1, '429 must include a valid Retry-After');
-      } else unavailable += 1;
-      const upstream = response.headers.get('x-fanzoom-test-upstream');
-      if (upstream) upstreams.add(upstream);
-    }
-  }));
-  const elapsed = performance.now() - started;
-  return {
-    total, concurrency, allowed, denied, unavailable, upstreams: upstreams.size,
-    p50Ms: Number(percentile(latencies, 0.5).toFixed(2)),
-    p95Ms: Number(percentile(latencies, 0.95).toFixed(2)),
-    throughputRps: Number((total / (elapsed / 1000)).toFixed(2)),
-    logicalWrites: total * 2,
-    pocketBaseRoundTrips: total,
-  };
-}
-
 async function main() {
+  const healthMetricsBefore = await readLimiterMetrics();
+  for (let index = 0; index < 10; index += 1) {
+    const health = await fetch(`${appUrl}/api/health`, {
+      cache: 'no-store',
+      headers: { 'X-Request-Id': randomUUID() },
+    });
+    assert(health.status === 200, 'public read-only health probe failed');
+  }
+  const healthMetricsAfter = await readLimiterMetrics();
+  assert(
+    healthMetricsAfter.activeBuckets === healthMetricsBefore.activeBuckets,
+    'health probe created a shared limiter bucket',
+  );
+
   const validInput = {
     decisionId: randomUUID(),
-    buckets: [{ policy: 'health.visitor', keyHash: keyHash(`valid:${randomUUID()}`) }],
+    buckets: [{ policy: '_internal.benchmark-saturated', keyHash: keyHash(`valid:${randomUUID()}`) }],
   };
   assert((await signedRequest(validInput)).status === 200, 'valid current-secret HMAC failed');
   assert((await signedRequest({ ...validInput, decisionId: randomUUID() }, { secret: previousSecret })).status === 200, 'previous-secret rotation HMAC failed');
@@ -117,7 +96,7 @@ async function main() {
   assert((await signedRequest({ ...validInput, decisionId: randomUUID() }, { timestamp: Date.now() - 120_000 })).status === 401, 'expired timestamp was not rejected');
   assert((await signedRequest({ decisionId: randomUUID(), buckets: [{ policy: 'not-allowed', keyHash: keyHash('bad-policy') }] })).status === 400, 'unknown policy was not rejected');
   assert((await signedRequest({ decisionId: randomUUID(), cost: 0, buckets: validInput.buckets })).status === 400, 'client cost override was not rejected');
-  assert((await signedRequest({ decisionId: randomUUID(), buckets: [{ policy: 'health.visitor', keyHash: 'raw-user-id' }] })).status === 400, 'invalid key hash was not rejected');
+  assert((await signedRequest({ decisionId: randomUUID(), buckets: [{ policy: '_internal.benchmark-saturated', keyHash: 'raw-user-id' }] })).status === 400, 'invalid key hash was not rejected');
 
   const multi = await signedRequest({
     decisionId: randomUUID(),
@@ -129,7 +108,7 @@ async function main() {
   const multiBody = await multi.json();
   assert(multi.status === 200 && multiBody.results.length === 2 && multiBody.writeCount === 3, 'multi-bucket transaction failed');
 
-  const retryInput = { decisionId: randomUUID(), buckets: [{ policy: 'health.visitor', keyHash: keyHash(`retry:${randomUUID()}`) }] };
+  const retryInput = { decisionId: randomUUID(), buckets: [{ policy: '_internal.benchmark-saturated', keyHash: keyHash(`retry:${randomUUID()}`) }] };
   const firstRetry = await signedRequest(retryInput);
   const secondRetry = await signedRequest(retryInput);
   const secondRetryBody = await secondRetry.json();
@@ -148,45 +127,8 @@ async function main() {
     directRounds.push({ round, allowed, denied });
   }
 
-  // Warm the health Route Handler on all three dev instances so the benchmark
-  // measures limiter/runtime cost rather than Turbopack compilation.
-  for (let index = 0; index < 12; index += 1) {
-    const warm = await fetch(`${appUrl}/api/health`, {
-      headers: { 'X-Fanzoom-Test-Visitor': `warm-${expectedMode}-${randomUUID()}` },
-    });
-    assert(warm.status === 200, 'health warmup failed');
-  }
-
-  const performanceBenchmark = await concurrencyRun({
-    total: 40,
-    concurrency: 4,
-    cookie: `${expectedMode}-performance-${randomUUID()}`,
-    requestId: randomUUID(),
-  });
-  assert(performanceBenchmark.allowed === 40 && performanceBenchmark.unavailable === 0, 'performance benchmark did not remain below quota');
-  const concurrencyBenchmark = await concurrencyRun({
-    total: 120,
-    concurrency: 120,
-    cookie: `${expectedMode}-concurrency-${randomUUID()}`,
-    requestId: randomUUID(),
-  });
-  assert(concurrencyBenchmark.upstreams === 3, `reverse proxy reached ${concurrencyBenchmark.upstreams} Next instances instead of 3`);
-  if (expectedMode === 'shadow') {
-    assert(concurrencyBenchmark.allowed === 120 && concurrencyBenchmark.denied === 0, 'shadow mode blocked requests');
-  } else {
-    assert(concurrencyBenchmark.allowed === 60 && concurrencyBenchmark.denied === 60, `enforce expected 60/60, got ${concurrencyBenchmark.allowed}/${concurrencyBenchmark.denied}`);
-  }
-  assert(concurrencyBenchmark.unavailable === 0, 'limiter returned unexpected 5xx during concurrency');
-
-  const metricsTimestamp = String(Date.now());
-  const metricsResponse = await fetch(`${pbUrl}${metricsPath}`, {
-    headers: {
-      'X-Fanzoom-Timestamp': metricsTimestamp,
-      'X-Fanzoom-Signature': signature('GET', metricsPath, metricsTimestamp, ''),
-    },
-  });
-  const metrics = await metricsResponse.json();
-  assert(metricsResponse.status === 200 && Number.isInteger(metrics.activeBuckets), 'signed limiter metrics failed');
+  const metrics = await readLimiterMetrics();
+  assert(Number.isInteger(metrics.activeBuckets), 'signed limiter metrics returned an invalid bucket count');
   assert(!JSON.stringify(metrics).match(/keyHash|userId|cookie|secret|\bip\b/i), 'metrics exposed a sensitive identifier');
 
   const cleanupBefore = Number(metrics.cleanupDeleted || 0);
@@ -197,7 +139,7 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 2_200));
   await signedRequest({
     decisionId: randomUUID(),
-    buckets: [{ policy: 'health.visitor', keyHash: keyHash(`active:${randomUUID()}`) }],
+    buckets: [{ policy: '_internal.benchmark-saturated', keyHash: keyHash(`active:${randomUUID()}`) }],
   });
   const adminEmail = localEnvValue('PB_SUPERUSER_EMAIL');
   const adminPassword = localEnvValue('PB_SUPERUSER_PASSWORD');
@@ -205,22 +147,14 @@ async function main() {
   const adminPb = new PocketBase(pbUrl);
   await adminPb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
   await adminPb.crons.run('fanzoom-rate-limit-cleanup');
-  const afterTimestamp = String(Date.now());
-  const afterResponse = await fetch(`${pbUrl}${metricsPath}`, {
-    headers: {
-      'X-Fanzoom-Timestamp': afterTimestamp,
-      'X-Fanzoom-Signature': signature('GET', metricsPath, afterTimestamp, ''),
-    },
-  });
-  const cleanupAfter = await afterResponse.json();
+  const cleanupAfter = await readLimiterMetrics();
   assert(cleanupAfter.cleanupDeleted > cleanupBefore, 'cleanup did not delete expired limiter rows');
   assert(cleanupAfter.activeBuckets >= 1, 'cleanup deleted an active bucket');
 
   console.log(JSON.stringify({
     mode: expectedMode,
+    healthLimiterWrites: 0,
     directRounds,
-    performanceBenchmark,
-    concurrencyBenchmark,
     sqliteBusy: 0,
     metrics: cleanupAfter,
   }, null, 2));
