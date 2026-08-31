@@ -15,6 +15,7 @@ export const Collections = {
 	Bookmarks: "bookmarks",
 	Comments: "comments",
 	ReadingHistory: "reading_history",
+	RecommendationEvents: "recommendation_events",
 	Users: "users",
 } as const
 export type Collections = typeof Collections[keyof typeof Collections]
@@ -160,8 +161,53 @@ export type CommentsRecord = {
 export type ReadingHistoryRecord = {
 	article: RecordIdString
 	id: string
+	last_read?: IsoDateString
 	progress?: number
 	user: RecordIdString
+}
+
+export const RecommendationEventsEventTypeOptions = {
+	"served": "served",
+	"impression": "impression",
+	"open": "open",
+	"engaged": "engaged",
+	"progress_milestone": "progress_milestone",
+	"bookmark_add": "bookmark_add",
+	"bookmark_remove": "bookmark_remove",
+	"share": "share",
+	"comment": "comment",
+	"not_interested": "not_interested",
+} as const
+export type RecommendationEventsEventTypeOptions = typeof RecommendationEventsEventTypeOptions[keyof typeof RecommendationEventsEventTypeOptions]
+
+export const RecommendationEventsSurfaceOptions = {
+	"home": "home",
+	"for_you": "for_you",
+	"direct": "direct",
+	"article": "article",
+	"bookmarks": "bookmarks",
+	"history": "history",
+	"search": "search",
+	"category": "category",
+	"unknown": "unknown",
+} as const
+export type RecommendationEventsSurfaceOptions = typeof RecommendationEventsSurfaceOptions[keyof typeof RecommendationEventsSurfaceOptions]
+
+export type RecommendationEventsRecord = {
+	algorithmVersion?: string
+	articleId: RecordIdString
+	engagedSeconds?: number
+	eventId: string
+	eventType: RecommendationEventsEventTypeOptions
+	feedId?: string
+	idempotencyKey: string
+	maxProgress?: number
+	occurredAt: IsoDateString
+	rank?: number
+	reasonCode?: string
+	receivedAt: IsoDateString
+	surface: RecommendationEventsSurfaceOptions
+	userId: RecordIdString
 }
 
 export const UsersInterestsOptions = {
@@ -189,6 +235,8 @@ export type UsersRecord = {
 	interests?: UsersInterestsOptions[]
 	name?: string
 	password: string
+	personalizationConsentAt?: IsoDateString
+	personalizationEnabled?: boolean
 	tokenKey: string
 	updated: IsoAutoDateString
 	verified?: boolean
@@ -204,6 +252,7 @@ export type ArticlesResponse<Texpand = unknown> = Required<ArticlesRecord> & Bas
 export type BookmarksResponse<Texpand = unknown> = Required<BookmarksRecord> & BaseSystemFields<Texpand>
 export type CommentsResponse<Texpand = unknown> = Required<CommentsRecord> & BaseSystemFields<Texpand>
 export type ReadingHistoryResponse<Texpand = unknown> = Required<ReadingHistoryRecord> & BaseSystemFields<Texpand>
+export type RecommendationEventsResponse<Texpand = unknown> = Required<RecommendationEventsRecord> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
@@ -218,6 +267,7 @@ export type CollectionRecords = {
 	bookmarks: BookmarksRecord
 	comments: CommentsRecord
 	reading_history: ReadingHistoryRecord
+	recommendation_events: RecommendationEventsRecord
 	users: UsersRecord
 }
 
@@ -231,6 +281,7 @@ export type CollectionResponses = {
 	bookmarks: BookmarksResponse
 	comments: CommentsResponse
 	reading_history: ReadingHistoryResponse
+	recommendation_events: RecommendationEventsResponse
 	users: UsersResponse
 }
 

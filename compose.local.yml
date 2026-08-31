@@ -1,0 +1,79 @@
+name: fanzoom-local
+
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: docker/pocketbase.Dockerfile
+      args:
+        PB_VERSION: "0.40.0"
+    env_file:
+      - .env.docker.local
+    ports:
+      - "127.0.0.1:${FANZOOM_LOCAL_PB_PORT:-8090}:8090"
+    volumes:
+      - fanzoom_pb_data:/pb/pb_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/api/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  setup:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+    env_file:
+      - .env.docker.local
+    environment:
+      ALLOW_LOCAL_SEED: "true"
+      FANZOOM_LOCAL_DOCKER: "false"
+      NEXT_PUBLIC_POCKETBASE_URL: http://pocketbase:8090
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -ec
+      - node scripts/seed-articles.mjs && node scripts/bootstrap-local-user.mjs
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+    env_file:
+      - .env.docker.local
+    environment:
+      FANZOOM_LOCAL_DOCKER: "true"
+      FANZOOM_LOCAL_PB_PORT: "${FANZOOM_LOCAL_PB_PORT:-8090}"
+      NEXT_PUBLIC_POCKETBASE_URL: "http://127.0.0.1:${FANZOOM_LOCAL_PB_PORT:-8090}"
+      POCKETBASE_INTERNAL_URL: http://pocketbase:8090
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${FANZOOM_LOCAL_WEB_PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - fanzoom_node_modules:/app/node_modules
+      - fanzoom_next_cache:/app/.next
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  fanzoom_pb_data:
+  fanzoom_node_modules:
+  fanzoom_next_cache:

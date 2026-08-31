@@ -4,12 +4,23 @@ import { useState, useCallback } from 'react';
 import { SecondaryCard } from '@/components/SecondaryCard';
 import { Icon } from '@/components/Icon';
 import type { Article } from '@/lib/articles-server';
+import { RecommendationImpressionBoundary } from '@/components/RecommendationImpressionBoundary';
+import { RecommendationServedReporter } from '@/components/RecommendationServedReporter';
+import { BASELINE_RECOMMENDATION_ALGORITHM_VERSION } from '@/lib/recommendations/baseline';
 
 interface Props {
   initialArticles: Article[];
+  initialFeedId: string;
+  algorithmVersion: typeof BASELINE_RECOMMENDATION_ALGORITHM_VERSION;
+  personalizationEnabled: boolean;
 }
 
-export function ForYouClient({ initialArticles }: Props) {
+export function ForYouClient({
+  initialArticles,
+  initialFeedId,
+  algorithmVersion,
+  personalizationEnabled,
+}: Props) {
   const [articles, setArticles] = useState<Article[]>(initialArticles);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialArticles.length >= 10);
@@ -19,7 +30,7 @@ export function ForYouClient({ initialArticles }: Props) {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/recommended?offset=${articles.length}&limit=10`
+        `/api/recommended?offset=${articles.length}&limit=10&feedId=${encodeURIComponent(initialFeedId)}`
       );
       if (!res.ok) throw new Error('fetch failed');
       const data = await res.json();
@@ -30,14 +41,37 @@ export function ForYouClient({ initialArticles }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [articles.length, loading, hasMore]);
+  }, [articles.length, initialFeedId, loading, hasMore]);
 
   return (
-    <div>
+    <div data-feed-id={initialFeedId} data-algorithm-version={algorithmVersion}>
+      <RecommendationServedReporter
+        feedId={initialFeedId}
+        surface="for_you"
+        algorithmVersion={algorithmVersion}
+        offset={0}
+        articleIds={initialArticles.map((article) => article.id)}
+        enabled={personalizationEnabled}
+      />
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {articles.map((article) => (
-          <SecondaryCard key={article.id} article={article} />
-        ))}
+        {articles.map((article, index) => {
+          const attribution = {
+            feedId: initialFeedId,
+            rank: index + 1,
+            surface: 'for_you' as const,
+            algorithmVersion,
+          };
+          return (
+            <RecommendationImpressionBoundary
+              key={article.id}
+              articleId={article.id}
+              attribution={attribution}
+              enabled={personalizationEnabled}
+            >
+              <SecondaryCard article={article} attribution={attribution} />
+            </RecommendationImpressionBoundary>
+          );
+        })}
       </div>
 
       {hasMore && (

@@ -4,23 +4,13 @@ import { useEffect } from 'react';
 
 export function ViewTracker({ articleId }: { articleId: string }) {
   useEffect(() => {
-    if (!articleId) {
-      console.log('🔵 [ViewTracker] No articleId provided');
-      return;
-    }
+    if (!articleId) return;
 
     const storageKey = `viewed:${articleId}`;
     
     if (typeof window !== 'undefined' && sessionStorage.getItem(storageKey)) {
-      console.log('🔵 [ViewTracker] Already viewed in this session:', articleId);
       return;
     }
-
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(storageKey, 'true');
-    }
-
-    console.log('🔵 [ViewTracker] Sending view request for:', articleId);
 
     fetch('/api/views', {
       method: 'POST',
@@ -29,15 +19,10 @@ export function ViewTracker({ articleId }: { articleId: string }) {
     })
       .then(async (res) => {
         const data = await res.json();
-        if (res.ok) {
-          console.log('✅ [ViewTracker] Success:', data);
-        } else {
-          console.error('🔴 [ViewTracker] API error:', data);
-        }
+        if (res.ok && typeof window !== 'undefined') sessionStorage.setItem(storageKey, 'true');
+        return data;
       })
-      .catch((err) => {
-        console.error('🔴 [ViewTracker] Network error:', err);
-      });
+      .catch(() => {});
   }, [articleId]);
 
   return null;

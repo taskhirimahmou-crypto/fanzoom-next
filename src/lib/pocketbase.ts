@@ -1,6 +1,6 @@
 // src/lib/pocketbase.ts
 import PocketBase from 'pocketbase';
-import { getPocketBaseUrl } from './pocketbase-url';
+import { getPocketBaseServerUrl } from './pocketbase-url';
 
 /**
  * یک instance تازه‌ی PocketBase برای هر درخواست (server-side).
@@ -8,7 +8,7 @@ import { getPocketBaseUrl } from './pocketbase-url';
  * و auth token یا cache بین درخواست‌ها نشت نکند.
  */
 export function getPocketBase(): PocketBase {
-  const pb = new PocketBase(getPocketBaseUrl());
+  const pb = new PocketBase(getPocketBaseServerUrl());
   
   // افزایش timeout از 10s به 30s
   pb.autoCancellation(false);

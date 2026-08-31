@@ -18,7 +18,7 @@ declare module 'sanitize-html' {
     disallowedTagsMode?: 'discard' | 'escape' | 'recursiveEscape';
     enforceHtmlBoundary?: boolean;
     nestingLimit?: number;
-    parser?: any;
+    parser?: Record<string, unknown>;
   }
 
   function sanitize(dirty: string, options?: IOptions): string;

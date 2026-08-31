@@ -5,6 +5,11 @@ import { getRecommendedArticles } from '@/lib/articles-server';
 import { ForYouClient } from '@/components/ForYouClient';
 import { Icon } from '@/components/Icon';
 import type { Article } from '@/lib/articles-server';
+import {
+  BASELINE_RECOMMENDATION_ALGORITHM_VERSION,
+  createBaselineFeedId,
+} from '@/lib/recommendations/baseline';
+import { isPersonalizationEnabled } from '@/lib/personalization/consent';
 
 export const metadata: Metadata = {
   title: 'پیشنهاد برای شما | فن زوم',
@@ -18,13 +23,16 @@ export default async function ForYouPage() {
 
   const fullUser = (await pb.collection('users').getOne(record.id)) as {
     interests?: string[];
+    personalizationEnabled?: boolean;
   };
+  const personalizationEnabled = isPersonalizationEnabled(fullUser);
 
   let articles: Article[] = [];
   if (fullUser.interests && fullUser.interests.length > 0) {
     articles = await getRecommendedArticles(fullUser.interests, 10, 0);
   }
 
+  const feedId = createBaselineFeedId();
   return (
     <main className="relative">
       <div
@@ -50,7 +58,12 @@ export default async function ForYouPage() {
 
         {articles.length > 0 ? (
           <div className="mt-8">
-            <ForYouClient initialArticles={articles} />
+            <ForYouClient
+              initialArticles={articles}
+              initialFeedId={feedId}
+              algorithmVersion={BASELINE_RECOMMENDATION_ALGORITHM_VERSION}
+              personalizationEnabled={personalizationEnabled}
+            />
           </div>
         ) : (
           <div className="mt-16 text-center">

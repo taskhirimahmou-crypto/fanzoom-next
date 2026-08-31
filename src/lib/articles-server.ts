@@ -3,7 +3,8 @@ import { unstable_cache } from 'next/cache';
 import { getPocketBase } from '@/lib/pocketbase';
 import { getServerPocketBase } from '@/lib/auth-cookies';
 import { getImageUrl } from '@/lib/articles';
-import type { ArticlesResponse } from '@/lib/pb-types';
+import type { ArticlesResponse, BookmarksResponse } from '@/lib/pb-types';
+import { interleaveRecommendationLists } from '@/lib/recommendations/baseline';
 
 export type Article = ArticlesResponse;
 const PUBLISHED = 'status = "published"';
@@ -18,7 +19,10 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
   try {
     return await fn();
   } catch (error) {
-    if (retries > 0 && (error as any)?.code === 'UND_ERR_CONNECT_TIMEOUT') {
+    if (
+      retries > 0 &&
+      (error as { code?: string } | null)?.code === 'UND_ERR_CONNECT_TIMEOUT'
+    ) {
       console.warn(`🔴 Timeout, retrying... (${retries} left)`);
       await new Promise(r => setTimeout(r, 1000)); // 1s delay
       return withRetry(fn, retries - 1);
@@ -158,7 +162,7 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
   try {
     // ۱. فقط bookmarkها را بگیر (بدون expand و بدون filter)
     // listRule در PocketBase خودش filter می‌کند
-    const bookmarks = await pb.collection('bookmarks').getFullList({
+    const bookmarks = await pb.collection('bookmarks').getFullList<BookmarksResponse>({
       sort: '-created',
     });
     
@@ -166,7 +170,7 @@ export async function getBookmarkedArticles(userId: string): Promise<Article[]> 
     
     // ۲. IDهای مقالات را استخراج کن
     const articleIds = bookmarks
-      .map((b: any) => b.article)
+      .map((bookmark) => bookmark.article)
       .filter((id: string) => Boolean(id));
     
     if (articleIds.length === 0) {
@@ -226,20 +230,7 @@ const getRecommendedPool = async (interests: string[]): Promise<Article[]> => {
         .map((l) => l.items.map((i) => resolveImage(i as unknown as Article)));
 
       // Round-robin: یک مقاله از هر دسته به نوبت → تنوع کامل
-      const pool: Article[] = [];
-      let idx = 0;
-      for (;;) {
-        let added = false;
-        for (const arr of arrays) {
-          if (arr[idx]) {
-            pool.push(arr[idx]);
-            added = true;
-          }
-        }
-        if (!added) break;
-        idx++;
-      }
-      return pool;
+      return interleaveRecommendationLists(arrays);
     },
     ['recommended-pool-v1', ...interests],
     { revalidate: 60 }

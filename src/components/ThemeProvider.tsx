@@ -32,17 +32,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   ));
 
   useEffect(() => {
-    const stored = localStorage.getItem('theme') as Theme | null;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setTheme(stored ?? (prefersDark ? 'dark' : 'light'));
+    const frame = window.requestAnimationFrame(() => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  const toggle = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+    localStorage.setItem('theme', nextTheme);
+    setTheme(nextTheme);
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>

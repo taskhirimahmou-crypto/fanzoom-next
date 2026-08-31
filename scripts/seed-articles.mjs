@@ -1,14 +1,30 @@
 // scripts/seed-articles.mjs
 // ساخت مقاله‌های تست در PocketBase
-// اجرا: node scripts/seed-articles.mjs <email> <password>
+// اجرا در محیط محلی: ALLOW_LOCAL_SEED=true node scripts/seed-articles.mjs
 
 import PocketBase from 'pocketbase';
 
 const PB_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
-const [email, password] = process.argv.slice(2);
+const [emailArg, passwordArg] = process.argv.slice(2);
+const email = emailArg || process.env.PB_SUPERUSER_EMAIL;
+const password = passwordArg || process.env.PB_SUPERUSER_PASSWORD;
+
+let pbHostname = '';
+try {
+  pbHostname = new URL(PB_URL).hostname;
+} catch {
+  console.error('❌ آدرس PocketBase معتبر نیست.');
+  process.exit(1);
+}
+
+const localHosts = new Set(['127.0.0.1', 'localhost', 'pocketbase']);
+if (process.env.ALLOW_LOCAL_SEED !== 'true' || !localHosts.has(pbHostname)) {
+  console.error('❌ Seed فقط با ALLOW_LOCAL_SEED=true و روی PocketBase محلی مجاز است.');
+  process.exit(1);
+}
 
 if (!email || !password) {
-  console.error('❌ دستور درست: node scripts/seed-articles.mjs <email> <password>');
+  console.error('❌ PB_SUPERUSER_EMAIL و PB_SUPERUSER_PASSWORD لازم است.');
   process.exit(1);
 }
 
