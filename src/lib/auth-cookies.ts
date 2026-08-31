@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import PocketBase, { ClientResponseError, type RecordModel } from 'pocketbase';
 import { getPocketBaseServerUrl } from './pocketbase-url';
+import { attachRequestIdToPocketBase } from './observability/request-context';
 
 export const AUTH_COOKIE = 'pb_auth';
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
@@ -56,8 +57,8 @@ function isRejectedSession(error: unknown) {
  * and refreshes otherwise. Connectivity and other PocketBase failures propagate so
  * callers don't mistake an unavailable backend for a logged-out user.
  */
-export async function getServerPocketBase() {
-  const pb = new PocketBase(getPocketBaseServerUrl());
+export async function getServerPocketBase(requestId?: string) {
+  const pb = attachRequestIdToPocketBase(new PocketBase(getPocketBaseServerUrl()), requestId);
   const authCookie = (await cookies()).get(AUTH_COOKIE)?.value;
 
   if (!authCookie) return pb;
@@ -92,8 +93,8 @@ export async function getServerPocketBase() {
 }
 
 /** Reads a validated, freshly refreshed user for Server Components. */
-export async function getCurrentUser(): Promise<AuthContext | null> {
-  const pb = await getServerPocketBase();
+export async function getCurrentUser(requestId?: string): Promise<AuthContext | null> {
+  const pb = await getServerPocketBase(requestId);
   const user = pb.authStore.record;
 
   if (!pb.authStore.isValid || !isUserRecord(user)) return null;
@@ -104,8 +105,8 @@ export async function getCurrentUser(): Promise<AuthContext | null> {
  * Auth guard for Route Handlers. Its unauthorized response owns the Set-Cookie
  * header, allowing stale or malformed sessions to be removed by the browser.
  */
-export async function requireUser(): Promise<RequireUserResult> {
-  const auth = await getCurrentUser();
+export async function requireUser(requestId?: string): Promise<RequireUserResult> {
+  const auth = await getCurrentUser(requestId);
   if (auth) return { ok: true, ...auth };
 
   const response = NextResponse.json(

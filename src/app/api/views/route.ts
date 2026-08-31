@@ -10,6 +10,11 @@ import {
   resolveViewVisitorIdentity,
   VIEW_VISITOR_COOKIE,
 } from '@/lib/views/view-service';
+import {
+  beginServerRequest,
+  logRequestEvent,
+  observedJson,
+} from '@/lib/observability/request-context';
 
 const burstLimiter = new FixedWindowRateLimiter(60, 60_000);
 // These windows are per Next.js process. Move them to shared storage when horizontal
@@ -31,11 +36,14 @@ function withVisitorCookie(response: NextResponse, value: string | undefined): N
 }
 
 export async function POST(req: NextRequest) {
+  const observation = beginServerRequest(req, '/api/views');
   try {
     const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
     const id = body?.id;
     if (!isPocketBaseRecordId(id)) {
-      return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 });
+      return observedJson(observation, { ok: false, error: 'invalid id' }, { status: 400 }, {
+        errorCode: 'invalid_article',
+      });
     }
     const secret = requireViewRateLimitSecret(process.env.VIEW_RATE_LIMIT_SECRET);
     const visitor = resolveViewVisitorIdentity({
@@ -50,41 +58,51 @@ export async function POST(req: NextRequest) {
       dedupeLimiter: viewDedupeLimiter,
       counter: {
         async increment(articleId) {
-          const pb = await getAdminPocketBase();
+          const pb = await getAdminPocketBase(observation.requestId);
           return new PocketBaseAtomicViewCounter(pb).increment(articleId);
         },
       },
     });
 
     if (result.kind === 'invalid') {
-      return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 });
+      return observedJson(observation, { ok: false, error: 'invalid id' }, { status: 400 }, {
+        errorCode: 'invalid_article',
+      });
     }
     if (result.kind === 'rate_limited') {
-      return withVisitorCookie(NextResponse.json(
+      logRequestEvent(observation, 'warn', 'rate_limit_exceeded', 429, {
+        errorCode: 'view_rate_limited',
+      });
+      return withVisitorCookie(observedJson(
+        observation,
         { ok: false, error: 'rate limited', retryAfterSeconds: result.retryAfterSeconds },
         {
           status: 429,
           headers: { 'Retry-After': String(result.retryAfterSeconds) },
         },
+        { errorCode: 'view_rate_limited' },
       ), visitor.setCookieValue);
     }
     if (result.kind === 'duplicate') {
       return withVisitorCookie(
-        NextResponse.json({ ok: true, counted: false }),
+        observedJson(observation, { ok: true, counted: false }),
         visitor.setCookieValue,
       );
     }
 
     return withVisitorCookie(
-      NextResponse.json({ ok: true, counted: true, views: result.views }),
+      observedJson(observation, { ok: true, counted: true, views: result.views }),
       visitor.setCookieValue,
     );
   } catch (error) {
     const status = (error as PocketBaseError).status === 404 ? 404 : 500;
-    console.error('view counter failed', error);
-    return NextResponse.json(
+    const errorCode = status === 404 ? 'article_not_found' : 'atomic_view_failed';
+    logRequestEvent(observation, 'error', 'atomic_view_failure', status, { errorCode });
+    return observedJson(
+      observation,
       { ok: false, error: status === 404 ? 'article not found' : 'view update failed' },
       { status },
+      { errorCode },
     );
   }
 }

@@ -73,6 +73,19 @@ const adminPb = new PocketBase(localPb);
 adminPb.autoCancellation(false);
 await adminPb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
 
+const healthRequestId = crypto.randomUUID();
+const health = await jsonRequest('/api/health', {
+  headers: { 'x-request-id': healthRequestId },
+});
+assert(health.response.status === 200, 'Next.js health endpoint is not healthy');
+assert(health.body?.status === 'ok', 'Public health response has an unexpected status');
+assert(Object.keys(health.body).length === 1, 'Public health response exposed internal details');
+assert(
+  health.response.headers.get('x-request-id') === healthRequestId,
+  'Health request ID was not propagated',
+);
+pass('public health is minimal and propagates request ID');
+
 const articles = await adminPb.collection('articles').getFullList();
 assert(articles.length >= 3, 'At least three local articles are required');
 const article = articles[0];
@@ -145,8 +158,16 @@ assert(enabledUser.personalizationEnabled === true, 'Consent bool was not persis
 assert(Boolean(enabledUser.personalizationConsentAt), 'Consent timestamp was not persisted');
 pass('explicit consent is persisted with timestamp');
 
-const feed = await jsonRequest(`/api/recommended?limit=3&feedId=${feedId}`, { cookie });
+const feedRequestId = crypto.randomUUID();
+const feed = await jsonRequest(`/api/recommended?limit=3&feedId=${feedId}`, {
+  cookie,
+  headers: { 'x-request-id': feedRequestId },
+});
 assert(feed.response.status === 200, 'Recommendation feed failed after consent');
+assert(
+  feed.response.headers.get('x-request-id') === feedRequestId,
+  'Recommendation request ID was not propagated',
+);
 assert(feed.body.feedId === feedId, 'Feed ID was not preserved');
 assert(feed.body.algorithmVersion === algorithmVersion, 'Baseline algorithm version changed');
 assert(feed.body.personalizationEnabled === true, 'Consent state missing from feed response');
