@@ -1,5 +1,9 @@
 import PocketBase from 'pocketbase';
 import { createHmac } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 const appUrl = process.env.LOCAL_APP_URL;
 const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL;
@@ -121,6 +125,68 @@ const cookieMatch = setCookie.match(/pb_auth=([^;]+)/);
 assert(cookieMatch, 'Authentication cookie was not returned');
 const cookie = `pb_auth=${cookieMatch[1]}`;
 pass('authenticated session cookie is issued');
+
+const userPb = new PocketBase(localPb);
+await userPb.collection('users').authWithPassword(testEmail, testPassword);
+
+for (let attempt = 0; attempt < 2; attempt += 1) {
+  const provisioning = await execFileAsync(
+    process.execPath,
+    [
+      'scripts/provision-local-app-admin.mjs',
+      '--user-id',
+      testUser.id,
+      '--role',
+      'viewer',
+    ],
+    { env: process.env },
+  );
+  assert(
+    provisioning.stdout.includes('role=viewer, enabled=true'),
+    'Local admin provisioning did not return its non-sensitive success status',
+  );
+  assert(!provisioning.stdout.includes(testUser.id), 'Provisioning output exposed the user ID');
+  assert(!provisioning.stdout.includes(testEmail), 'Provisioning output exposed the user email');
+}
+
+const appAdminRows = await adminPb.collection('app_admins').getFullList({
+  filter: adminPb.filter('user = {:userId}', { userId: testUser.id }),
+});
+assert(appAdminRows.length === 1, 'Idempotent provisioning created duplicate app admin rows');
+assert(appAdminRows[0].role === 'viewer' && appAdminRows[0].enabled === true, 'Provisioned role is invalid');
+
+for (const operation of ['list', 'create', 'update', 'delete']) {
+  let status = 0;
+  try {
+    if (operation === 'list') await userPb.collection('app_admins').getList(1, 1);
+    if (operation === 'create') {
+      await userPb.collection('app_admins').create({ user: testUser.id, role: 'owner', enabled: true });
+    }
+    if (operation === 'update') {
+      await userPb.collection('app_admins').update(appAdminRows[0].id, { role: 'owner' });
+    }
+    if (operation === 'delete') {
+      await userPb.collection('app_admins').delete(appAdminRows[0].id);
+    }
+  } catch (error) {
+    status = error?.status ?? 0;
+  }
+  assert(status === 403, `Direct PocketBase app_admins ${operation} was not blocked`);
+}
+
+let duplicateMembershipStatus = 0;
+try {
+  await adminPb.collection('app_admins').create({
+    user: testUser.id,
+    role: 'admin',
+    enabled: true,
+  });
+} catch (error) {
+  duplicateMembershipStatus = error?.status ?? 0;
+}
+assert(duplicateMembershipStatus === 400, 'Unique app admin membership was not enforced');
+await adminPb.collection('app_admins').update(appAdminRows[0].id, { enabled: false });
+pass('app admin provisioning is idempotent, private, unique and disableable');
 
 const beforeDisabledEvents = await adminPb.collection('recommendation_events').getFullList({
   filter: adminPb.filter('userId = {:userId}', { userId: testUser.id }),
@@ -614,8 +680,6 @@ const bookmarkRemove = await jsonRequest('/api/bookmarks', {
   body: JSON.stringify({ articleId: feed.body.articles[2].id }),
 });
 assert(bookmarkRemove.response.status === 200, 'Bookmark remove failed');
-const userPb = new PocketBase(localPb);
-await userPb.collection('users').authWithPassword(testEmail, testPassword);
 let directCommentStatus = 0;
 try {
   await userPb.collection('comments').create({

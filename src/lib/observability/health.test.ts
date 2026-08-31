@@ -11,6 +11,7 @@ const fields = {
     'engagedSeconds', 'maxProgress', 'reasonCode',
   ],
   comments: ['user', 'article', 'content', 'status'],
+  app_admins: ['user', 'role', 'enabled'],
 };
 
 function client(overrides: Partial<HealthProbeClient> = {}): HealthProbeClient {
@@ -19,9 +20,24 @@ function client(overrides: Partial<HealthProbeClient> = {}): HealthProbeClient {
     collections: {
       getOne: vi.fn(async (name: string) => ({
         name,
-        fields: (fields[name as keyof typeof fields] ?? []).map((field) => ({ name: field })),
-        createRule: name === 'recommendation_events' || name === 'comments' ? null : '',
-        updateRule: name === 'recommendation_events' || name === 'comments' ? null : '',
+        fields: (fields[name as keyof typeof fields] ?? []).map((field) => ({
+          name: field,
+          ...(name === 'app_admins' && field === 'role'
+            ? { values: ['owner', 'admin', 'viewer'] }
+            : {}),
+        })),
+        indexes: name === 'app_admins'
+          ? ['CREATE UNIQUE INDEX idx_app_admins_user_unique ON app_admins (user)']
+          : [],
+        listRule: name === 'app_admins' ? null : '',
+        viewRule: name === 'app_admins' ? null : '',
+        createRule: name === 'recommendation_events' || name === 'comments' || name === 'app_admins'
+          ? null
+          : '',
+        updateRule: name === 'recommendation_events' || name === 'comments' || name === 'app_admins'
+          ? null
+          : '',
+        deleteRule: name === 'app_admins' ? null : '',
       })),
     },
     ...overrides,

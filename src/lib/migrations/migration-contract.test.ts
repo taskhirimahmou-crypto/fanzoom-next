@@ -268,4 +268,35 @@ describe('PocketBase migration contract', () => {
     expect(comments).toMatchObject({ createRule: null, updateRule: null });
     expect(app.findAllRecords('comments')).toHaveLength(1);
   });
+
+  it('creates a private and unique app admin role collection idempotently', () => {
+    const migration = readMigration('create_app_admins.js');
+    for (const rule of ['listRule', 'viewRule', 'createRule', 'updateRule', 'deleteRule']) {
+      expect(migration).toContain(`${rule}: null`);
+    }
+    expect(migration).toContain('idx_app_admins_user_unique');
+    expect(migration).toContain('["owner", "admin", "viewer"]');
+    expect(migration).not.toMatch(/app\.delete\s*\(/);
+
+    const app = new MockApp();
+    runMigration(app, 'bootstrap_core_schema.js');
+    expect(() => runMigration(app, 'create_app_admins.js')).not.toThrow();
+    expect(() => runMigration(app, 'create_app_admins.js')).not.toThrow();
+
+    const collection = app.collections.get('app_admins');
+    expect(collection).toMatchObject({
+      listRule: null,
+      viewRule: null,
+      createRule: null,
+      updateRule: null,
+      deleteRule: null,
+    });
+    expect(collection?.fields.getByName('user')).toBeDefined();
+    expect(collection?.fields.getByName('role')).toMatchObject({
+      values: ['owner', 'admin', 'viewer'],
+    });
+    expect(collection?.fields.getByName('enabled')).toBeDefined();
+    expect(collection?.indexes.filter((index) => index.includes('idx_app_admins_user_unique')))
+      .toHaveLength(1);
+  });
 });

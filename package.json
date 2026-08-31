@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "admin:provision:local": "node scripts/provision-local-app-admin.mjs",
     "observability:report": "node scripts/observability-report.mjs"
   },
   "dependencies": {

@@ -1,8 +1,12 @@
 type CollectionSnapshot = {
   name?: string;
-  fields?: Array<{ name?: string }>;
+  fields?: Array<{ name?: string; values?: string[] }>;
+  indexes?: string[];
+  listRule?: string | null;
+  viewRule?: string | null;
   createRule?: string | null;
   updateRule?: string | null;
+  deleteRule?: string | null;
 };
 
 export type HealthProbeClient = {
@@ -35,6 +39,7 @@ const EXPECTED_SCHEMA = {
     'reasonCode',
   ],
   comments: ['user', 'article', 'content', 'status'],
+  app_admins: ['user', 'role', 'enabled'],
 } as const;
 
 export async function checkFanzoomHealth(client: HealthProbeClient): Promise<FanzoomHealthResult> {
@@ -56,6 +61,27 @@ export async function checkFanzoomHealth(client: HealthProbeClient): Promise<Fan
         (collection.createRule !== null || collection.updateRule !== null)
       ) {
         return { healthy: false, errorCode: 'schema_mismatch' };
+      }
+      if (
+        collectionName === 'app_admins' &&
+        (
+          collection.listRule !== null ||
+          collection.viewRule !== null ||
+          collection.createRule !== null ||
+          collection.updateRule !== null ||
+          collection.deleteRule !== null
+        )
+      ) {
+        return { healthy: false, errorCode: 'schema_mismatch' };
+      }
+      if (collectionName === 'app_admins') {
+        const role = collection.fields?.find((field) => field.name === 'role');
+        if (JSON.stringify(role?.values) !== JSON.stringify(['owner', 'admin', 'viewer'])) {
+          return { healthy: false, errorCode: 'schema_mismatch' };
+        }
+        if (!(collection.indexes ?? []).some((index) => index.includes('idx_app_admins_user_unique'))) {
+          return { healthy: false, errorCode: 'schema_mismatch' };
+        }
       }
     }
     return { healthy: true };
