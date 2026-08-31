@@ -268,13 +268,13 @@ export function Header({ user }: { user: CurrentUser | null }) {
               <>
                 <div className="mb-1 flex items-center gap-3 rounded-full px-4 py-3">
                   <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary-container text-sm font-black text-on-secondary-container">
-                    {(user.displayName || user.email || 'ک')[0]}
+                    {(user.displayName || 'ک')[0]}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-on-surface">
                       {user.displayName || 'کاربر فن زوم'}
                     </p>
-                    <p className="truncate text-xs text-on-surface-variant">{user.email}</p>
+                    <p className="truncate text-xs text-on-surface-variant">حساب احراز هویت‌شده</p>
                   </div>
                 </div>
                 <Link

@@ -1,3 +1,6 @@
+import { appendFileSync } from 'node:fs';
+import { isAbsolute, normalize } from 'node:path';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export type StructuredLogInput = {
@@ -72,5 +75,22 @@ export function writeStructuredServerLog(input: StructuredLogInput): StructuredS
   if (input.level === 'error') console.error(line);
   else if (input.level === 'warn') console.warn(line);
   else console.log(line);
+  writeLocalDockerLog(line);
   return record;
+}
+
+function writeLocalDockerLog(line: string): void {
+  const path = process.env.OBSERVABILITY_LOG_FILE;
+  if (
+    process.env.NODE_ENV === 'test' ||
+    process.env.FANZOOM_LOCAL_DOCKER !== 'true' ||
+    !path ||
+    !isAbsolute(path) ||
+    !normalize(path).replaceAll('\\', '/').startsWith('/app/.local-observability/')
+  ) return;
+  try {
+    appendFileSync(path, `${line}\n`, { encoding: 'utf8', flag: 'a' });
+  } catch {
+    // Logging must never make the request fail. Stdout above remains the source fallback.
+  }
 }

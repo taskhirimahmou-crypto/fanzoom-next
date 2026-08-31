@@ -4,7 +4,8 @@
 
 ## مرزهای ایمنی v1
 
-- هیچ dashboard عمومی یا endpoint مدیریتی ساخته نشده است.
+- dashboard خصوصی فقط در Docker لوکال و مسیر `/admin/observability` فعال است. page و API هر دو مستقل از هم session و عضویت `app_admins` را با حداقل نقش `viewer` بررسی می‌کنند.
+- API خصوصی `/api/admin/observability` فقط aggregate می‌دهد، `private, no-store` است و خارج از `FANZOOM_LOCAL_DOCKER=true` یا برای PocketBase غیرمحلی fail-closed می‌شود.
 - گزارش Data Quality فقط با superuser محلی و فقط برای hostهای `127.0.0.1`، `localhost` یا `pocketbase` اجرا می‌شود. URLهای HTTPS و hostهای بیرونی عمداً رد می‌شوند.
 - logger فقط فیلدهای allowlist را می‌نویسد. password، token، cookie، authorization، credential، email، IP خام، متن مقاله/نظر و payload کاربر ورودی logger نیستند.
 - event خام در log کپی نمی‌شود؛ فقط `feedId` و `algorithmVersion` معتبرِ متنی در صورت وجود ثبت می‌شوند.
@@ -25,6 +26,14 @@ Invoke-RestMethod http://127.0.0.1:3000/api/health
 ```
 
 پاسخ عمومی فقط `status` دارد. در حالت سالم `200 {"status":"ok"}` و در حالت ناسالم `503 {"status":"unavailable"}` برمی‌گردد. جزئیات داخلی فقط به شکل errorCode محدود در log سرور دیده می‌شوند.
+
+برای dashboard، ابتدا کاربر آزمایشی را با راهنمای `docs/admin-access.md` به نقش `viewer` متصل کنید، سپس با همان کاربر وارد شوید و این URL را باز کنید:
+
+```text
+http://127.0.0.1:3000/admin/observability?window=24h&surface=all&algorithm=all&tab=overview
+```
+
+فیلترها در URL حفظ می‌شوند. دکمه‌ی تازه‌سازی query جدید و بدون cache مشترک اجرا می‌کند. volume نام‌دار `fanzoom_observability_logs` نسخه‌ی JSONL allowlistشده‌ی logهای Next.js را نگه می‌دارد؛ حذف و ساخت دوباره‌ی container آن را حذف نمی‌کند، اما حذف صریح volume داده را پاک می‌کند.
 
 برای گرفتن گزارش تجمیعی همراه با logهای فعلی:
 
@@ -69,18 +78,22 @@ docker compose --env-file .env.docker.local -f compose.local.yml logs --no-color
 | PocketBase unavailable | ۲ health failure پیاپی | شبکه، container و migration/hook startup |
 | served partial failure | هر مورد | unique index، retry و خطای write |
 
-## معماری dashboard خصوصی آینده
+## معماری dashboard خصوصی فعلی و آینده
 
-dashboard فقط پس از وجود نقش admin واقعی ساخته شود: session احرازشده، role/claim سمت سرور، deny-by-default، audit log و rate limit مشترک. معماری پیشنهادی این است که یک job زمان‌بندی‌شده metricهای تجمیعی و بدون userId را در collection جدا بنویسد و dashboard فقط همان aggregateها را بخواند. superuser credential نباید به browser برسد؛ admin password ساده، secret در query string و endpoint عمومی قابل قبول نیستند.
+نسخه‌ی فعلی read-only است: session عادی کاربر با `requireUser` refresh می‌شود، membership خصوصی `app_admins` سمت سرور خوانده می‌شود و superuser client فقط در DAL سرور برای query محدود و aggregate استفاده می‌شود. dashboard هیچ mutation یا provisioning control ندارد.
+
+برای محیط چند-instance آینده، query مستقیم باید با یک job زمان‌بندی‌شده جایگزین شود که metricهای aggregate و بدون شناسه را در collection خصوصی بنویسد. API داشبورد فقط همان aggregateها را با cache خصوصی/کوتاه‌عمر بخواند؛ rate limiter مشترک، audit trail دسترسی و retention اجرایی نیز پیش از production لازم‌اند. superuser credential هرگز نباید به browser، URL یا response برسد.
 
 ## محدودیت‌های شناخته‌شده
 
 - logهای v1 روی stdout هستند؛ بدون نگهداری/ارسال امن، بعد از حذف container قابل بازیابی نیستند.
+- dashboard فقط mirror ساختاریافته‌ی Next.js را می‌خواند؛ stdout عمومی PocketBase و hookهایی که event ساختاریافته‌ی متناظر در Next.js ندارند فعلاً در نمودارها دیده نمی‌شوند.
 - rate limiter و شمارنده‌های عملیاتی process-local هستند و هنوز تصویر چند-instance نمی‌دهند.
 - CLI فقط logهایی را می‌بیند که در فایل ورودی داده شده‌اند؛ نبود فایل یعنی 429، 5xx و latency مقدار صفر/بدون نمونه دارند.
 - health اثر schema مورد انتظار را می‌سنجد، نه تاریخچه‌ی کامل ledger migration.
 - داده‌ی client رفتار انسانی را اثبات نمی‌کند؛ consistency سمت سرور فقط جعل ساده و drift را محدود می‌کند.
 - notification، tracing توزیع‌شده، هزینه‌ی query و resource metrics هنوز وجود ندارند.
+- query فعلی برای حجم محلی با سقف ۱۰٬۰۰۰ event مناسب است؛ برای production باید pre-aggregation و index/query budget جدا طراحی شود.
 
 ## retention پیشنهادی
 

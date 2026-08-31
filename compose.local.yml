@@ -53,6 +53,7 @@ services:
       POCKETBASE_INTERNAL_URL: http://pocketbase:8090
       NEXT_TELEMETRY_DISABLED: "1"
       WATCHPACK_POLLING: "true"
+      OBSERVABILITY_LOG_FILE: /app/.local-observability/server.jsonl
     depends_on:
       pocketbase:
         condition: service_healthy
@@ -65,6 +66,7 @@ services:
       - ./public:/app/public
       - fanzoom_node_modules:/app/node_modules
       - fanzoom_next_cache:/app/.next
+      - fanzoom_observability_logs:/app/.local-observability
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
       interval: 5s
@@ -77,3 +79,4 @@ volumes:
   fanzoom_pb_data:
   fanzoom_node_modules:
   fanzoom_next_cache:
+  fanzoom_observability_logs:

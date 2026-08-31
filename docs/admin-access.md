@@ -1,6 +1,6 @@
 # Fanzoom app admin access
 
-`app_admins` is an application authorization list for future private dashboards. It is not a
+`app_admins` is the application authorization list for the local private observability dashboard. It is not a
 PocketBase auth collection, and an application admin does not receive PocketBase superuser access.
 All collection API rules are locked. The Next.js server reads a membership only after `requireUser`
 has refreshed and validated the normal user session.
@@ -8,12 +8,13 @@ PocketBase supplies the standard `created` and `updated` timestamps for every me
 
 ## Roles
 
-- `viewer`: future read-only dashboard access.
+- `viewer`: read-only observability dashboard access.
 - `admin`: future operational actions explicitly protected for this role.
 - `owner`: future role-management actions explicitly protected for this role.
 
-No dashboard or role-management endpoint exists yet. `requireAppAdmin` returns only the validated
-role and never returns an auth token, a user profile, or a superuser client.
+The dashboard is available locally at `/admin/observability`. Its page and aggregate API independently
+call `requireAppAdmin` with minimum role `viewer`. No role-management endpoint exists. The helper
+returns only the validated role and never returns an auth token, a user profile, or a superuser client.
 
 ## Provision an admin in the local Docker stack
 
@@ -30,6 +31,14 @@ The script requires the local Docker safety marker and uses the container's exis
 PocketBase URL and superuser environment variables. It refuses HTTPS and any host other than
 `pocketbase`, `localhost`, or `127.0.0.1`.
 Running the same command again updates the one membership instead of creating a duplicate.
+
+After provisioning, sign in as that same local test user and open:
+
+```text
+http://127.0.0.1:3000/admin/observability
+```
+
+The label «داده‌ی آزمایشی» confirms that the dashboard is reading the isolated local Docker stack.
 
 To disable the local membership without deleting its audit-friendly record:
 

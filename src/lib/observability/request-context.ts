@@ -25,7 +25,7 @@ export function resolveRequestId(value: string | null | undefined): string {
 }
 
 export function beginServerRequest(
-  request: Pick<Request, 'headers'>,
+  request: { headers: { get: (name: string) => string | null } },
   route: string,
   options: { now?: () => number } = {},
 ): ServerRequestContext {
