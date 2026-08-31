@@ -50,6 +50,23 @@
 | `latency.averageMs` | میانگین duration فقط برای `http_request_completed` | structured logs | روند کلی latency |
 | `latency.p95Ms` | nearest-rank p95 duration | structured logs | tail latency و alert |
 
+## metricهای امنیت و دسترسی
+
+این metricها از `app_admin_audit` خصوصی و در query صفحه‌بندی‌شده‌ی حداکثر ۵۰۰۰ رکورد ساخته می‌شوند؛
+email و relationهای خام هرگز عضو DTO نیستند. state فعال هر کاربر از آخرین audit موفق تا انتهای بازه
+بازسازی می‌شود.
+
+| Metric | تعریف / denominator | تصمیم |
+| --- | --- | --- |
+| `security.activeAdminsByRole` | تعداد آخرین state موفق با `enabled=true` به تفکیک owner/admin/viewer؛ مخرج ندارد | ظرفیت دسترسی و بررسی حداقل یک owner |
+| `security.changes.grant` | audit موفق action=grant در window | روند اعطای دسترسی |
+| `roleChange` | audit موفق role_change در window | تغییر سطح اختیار |
+| `enable/revoke` | audit موفق enable/revoke در window | فعال‌سازی و لغو دسترسی |
+| `deniedAttempts` | audit outcome=denied در window | تلاش غیرمجاز یا invariant محافظتی |
+| `failedMutations` | audit outcome=failed در window | خرابی backend/mutation |
+| `singleOwnerWarning` | دقیقاً یک owner فعال در state بازسازی‌شده | هشدار continuity؛ خود mutation همچنان lockout را رد می‌کند |
+| `recentChanges` | حداکثر ۲۰ action/outcome/time/requestId امن | triage بدون PII |
+
 ## metricهای dashboard و denominator
 
 | نمایش | صورت | مخرج | واحد / نبود نمونه |
@@ -61,7 +78,10 @@
 | conversion هر مرحله | count مرحله‌ی فعلی | count مرحله‌ی قبلی | درصد؛ بدون مرحله‌ی قبلی `null` |
 | p95 latency | نمونه‌ی nearest-rank صدک ۹۵ | `durationMs` معتبر و نامنفی | میلی‌ثانیه؛ بدون نمونه `null` |
 
-`freshness.lastEventAt` آخرین زمان event خوانده‌شده، `lastLogAt` آخرین log معتبر و `lastObservedAt` جدیدترینِ این دو است. `generatedAt` زمان محاسبه است و نباید به‌جای freshness منبع تفسیر شود. `datasetKind=test` یعنی داده از stack محلی Docker آمده و در UI با برچسب «داده‌ی آزمایشی» نمایش داده می‌شود.
+`freshness.lastEventAt` آخرین زمان event، `lastLogAt` آخرین log و `lastAuditAt` آخرین audit خوانده‌شده
+است؛ `lastObservedAt` جدیدترینِ این سه است. `generatedAt` زمان محاسبه است و نباید به‌جای freshness منبع
+تفسیر شود. `datasetKind=test` یعنی داده از stack محلی Docker آمده و در UI با برچسب «داده‌ی آزمایشی»
+نمایش داده می‌شود.
 
 ## قرارداد خروجی امن dashboard
 

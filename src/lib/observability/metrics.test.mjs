@@ -135,6 +135,43 @@ describe('canonical observability metrics', () => {
     expect(serialized).not.toContain('private-cookie');
   });
 
+  it('derives admin access metrics only from private audit rows and removes relations from the DTO', () => {
+    const audits = [
+      {
+        targetUser: 'owneruser123456', action: 'bootstrap', afterRole: 'owner', afterEnabled: true,
+        outcome: 'success', occurredAt: '2026-08-30T10:00:00.000Z', requestId: 'migration-bootstrap-sensitive-id',
+      },
+      {
+        actorAdmin: 'owneradmin12345', targetUser: 'vieweruser12345', action: 'grant',
+        afterRole: 'viewer', afterEnabled: true, outcome: 'success',
+        occurredAt: '2026-08-31T10:00:00.000Z', requestId: '550e8400-e29b-41d4-a716-446655440000',
+      },
+      {
+        actorAdmin: 'owneradmin12345', action: 'access_denied', outcome: 'denied',
+        occurredAt: '2026-08-31T10:01:00.000Z', requestId: '550e8400-e29b-41d4-a716-446655440001',
+      },
+      {
+        actorAdmin: 'owneradmin12345', targetUser: 'vieweruser12345', action: 'mutation_failed',
+        beforeRole: 'viewer', afterRole: 'viewer', beforeEnabled: true, afterEnabled: true,
+        outcome: 'failed', occurredAt: '2026-08-31T10:02:00.000Z', requestId: '550e8400-e29b-41d4-a716-446655440002',
+      },
+    ];
+    const result = aggregateObservability([], [], { now: NOW, window: '24h', adminAccessAudits: audits });
+    expect(result.security).toMatchObject({
+      activeAdmins: { owner: 1, admin: 0, viewer: 1 },
+      onlyOneActiveOwner: true,
+      changes: { grant: 1, revoke: 0, roleChange: 0, enable: 0 },
+      successfulMutations: 1,
+      unauthorizedAttempts: 1,
+      failedMutations: 1,
+    });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('owneruser123456');
+    expect(serialized).not.toContain('vieweruser12345');
+    expect(serialized).not.toContain('owneradmin12345');
+    expect(serialized).not.toContain('migration-bootstrap-sensitive-id');
+  });
+
   it('aggregates shared limiter decisions, failures, latency and cleanup state without identifiers', () => {
     const logs = [
       {

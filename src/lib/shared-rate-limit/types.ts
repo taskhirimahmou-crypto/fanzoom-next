@@ -18,6 +18,10 @@ export type SharedRateLimitPolicyName =
   | 'views.visitor'
   | 'admin-observability.visitor'
   | 'admin-observability.user'
+  | 'admin-access-read.visitor'
+  | 'admin-access-read.user'
+  | 'admin-access-mutate.visitor'
+  | 'admin-access-mutate.user'
   | 'trusted-events.user';
 
 export type SharedRateLimitPermit = {

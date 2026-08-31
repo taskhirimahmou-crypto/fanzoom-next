@@ -4,19 +4,32 @@ import { requireUser, type RequireUserResult } from '../auth-cookies';
 import { logRequestEvent, type ServerRequestContext } from '../observability/request-context';
 import { getAdminPocketBase } from '../pocketbase-admin';
 import { acquireSharedRateLimit, sharedRateLimitResponse } from '../shared-rate-limit/core';
-import type { SharedRateLimitPermit } from '../shared-rate-limit/types';
+import type { SharedRateLimitPermit, SharedRateLimitPolicyName } from '../shared-rate-limit/types';
 
 export const APP_ADMIN_ROLES = ['owner', 'admin', 'viewer'] as const;
 export type AppAdminRole = (typeof APP_ADMIN_ROLES)[number];
 
 type AppAdminMembership = {
+  id: unknown;
   role: unknown;
   enabled: unknown;
 };
 
+export type AppAdminAuditContext = {
+  userId: string;
+  membershipId?: string;
+  permit: SharedRateLimitPermit;
+};
+
 export type RequireAppAdminResult =
-  | { ok: true; role: AppAdminRole; permit: SharedRateLimitPermit }
-  | { ok: false; response: NextResponse };
+  | {
+      ok: true;
+      role: AppAdminRole;
+      userId: string;
+      membershipId: string;
+      permit: SharedRateLimitPermit;
+    }
+  | { ok: false; response: NextResponse; auditContext?: AppAdminAuditContext };
 
 export type RequireAppAdminDependencies = {
   requireUser: (requestId?: string) => Promise<RequireUserResult>;
@@ -43,7 +56,7 @@ async function findMembership(userId: string, requestId?: string, permit?: Share
   try {
     return await pb.collection('app_admins').getFirstListItem(
       pb.filter('user = {:userId}', { userId }),
-      { fields: 'role,enabled' },
+      { fields: 'id,role,enabled' },
     );
   } catch (error) {
     if (error instanceof ClientResponseError && error.status === 404) return null;
@@ -60,6 +73,7 @@ function denied(
   context: ServerRequestContext,
   status: 403 | 503,
   errorCode: string,
+  auditContext?: AppAdminAuditContext,
 ): RequireAppAdminResult {
   logRequestEvent(
     context,
@@ -74,6 +88,7 @@ function denied(
       { error: status === 503 ? 'admin_access_unavailable' : 'forbidden' },
       { status },
     ),
+    ...(auditContext ? { auditContext } : {}),
   };
 }
 
@@ -85,7 +100,10 @@ function denied(
  */
 export async function requireAppAdmin(
   context: ServerRequestContext,
-  options: { minimumRole?: AppAdminRole } = {},
+  options: {
+    minimumRole?: AppAdminRole;
+    rateLimitPolicies?: readonly [SharedRateLimitPolicyName, SharedRateLimitPolicyName];
+  } = {},
   dependencies: RequireAppAdminDependencies = defaultDependencies,
 ): Promise<RequireAppAdminResult> {
   const auth = await dependencies.requireUser(context.requestId);
@@ -101,7 +119,7 @@ export async function requireAppAdmin(
     const shared = await acquireSharedRateLimit(
       { headers: context.requestHeaders ?? { get: () => null } },
       context,
-      ['admin-observability.visitor', 'admin-observability.user'],
+      options.rateLimitPolicies ?? ['admin-observability.visitor', 'admin-observability.user'],
       { userId: auth.user.id, visitorId: `authenticated:${auth.user.id}` },
     );
     const blocked = sharedRateLimitResponse(context, shared);
@@ -128,17 +146,26 @@ export async function requireAppAdmin(
     return denied(context, 503, 'app_admin_lookup_failed');
   }
 
-  if (!membership) return denied(context, 403, 'app_admin_missing');
-  if (!isAppAdminRole(membership.role)) return denied(context, 403, 'app_admin_role_invalid');
-  if (membership.enabled !== true) return denied(context, 403, 'app_admin_disabled');
+  const membershipId = typeof membership?.id === 'string' ? membership.id : undefined;
+  const auditContext = { userId: auth.user.id, membershipId, permit };
+  if (!membership) return denied(context, 403, 'app_admin_missing', auditContext);
+  if (!isAppAdminRole(membership.role)) return denied(context, 403, 'app_admin_role_invalid', auditContext);
+  if (membership.enabled !== true) return denied(context, 403, 'app_admin_disabled', auditContext);
 
   const minimumRole = options.minimumRole ?? 'viewer';
   if (!isAppAdminRole(minimumRole)) {
     return denied(context, 503, 'app_admin_minimum_role_invalid');
   }
   if (ROLE_LEVEL[membership.role] < ROLE_LEVEL[minimumRole]) {
-    return denied(context, 403, 'app_admin_role_insufficient');
+    return denied(context, 403, 'app_admin_role_insufficient', auditContext);
   }
 
-  return { ok: true, role: membership.role, permit };
+  if (!membershipId) return denied(context, 503, 'app_admin_membership_id_missing');
+  return {
+    ok: true,
+    role: membership.role,
+    userId: auth.user.id,
+    membershipId,
+    permit,
+  };
 }

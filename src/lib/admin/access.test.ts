@@ -34,7 +34,9 @@ function dependencies(
 ): RequireAppAdminDependencies {
   return {
     requireUser: vi.fn().mockResolvedValue(auth),
-    findMembership: vi.fn().mockResolvedValue(membership),
+    findMembership: vi.fn().mockResolvedValue(
+      membership ? { id: 'adminmember1234', ...membership } : null,
+    ),
   };
 }
 
@@ -83,7 +85,7 @@ describe('requireAppAdmin', () => {
         context.requestId,
         expect.objectContaining({ mode: 'shadow' }),
       );
-      expect(Object.keys(result)).toEqual(['ok', 'role', 'permit']);
+      expect(Object.keys(result)).toEqual(['ok', 'role', 'userId', 'membershipId', 'permit']);
     },
   );
 
@@ -115,7 +117,9 @@ describe('requireAppAdmin', () => {
 
   it('uses only the refreshed session user and never a caller-supplied identity', async () => {
     const findMembership = vi.fn(async (userId: string) => (
-      userId === 'otheruser123456' ? { role: 'owner', enabled: true } : null
+      userId === 'otheruser123456'
+        ? { id: 'adminmember1234', role: 'owner', enabled: true }
+        : null
     ));
     const deps: RequireAppAdminDependencies = {
       requireUser: vi.fn().mockResolvedValue(authenticated('normaluser12345')),

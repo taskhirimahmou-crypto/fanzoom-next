@@ -16,6 +16,8 @@ export const OBSERVABILITY_EVENT_LIMIT = 10_000;
 export const OBSERVABILITY_EVENT_PAGE_SIZE = 200;
 export const OBSERVABILITY_LOG_BYTE_LIMIT = 5 * 1024 * 1024;
 export const OBSERVABILITY_LOG_ROW_LIMIT = 20_000;
+export const OBSERVABILITY_AUDIT_LIMIT = 5_000;
+export const OBSERVABILITY_AUDIT_PAGE_SIZE = 200;
 const LOCAL_LOG_ROOT = '/app/.local-observability/';
 const LOCAL_POCKETBASE_HOSTS = new Set(['pocketbase', 'localhost', '127.0.0.1']);
 
@@ -80,6 +82,43 @@ export async function readBoundedRecommendationEvents(
     page += 1;
   } while (rows.length < limit);
 
+  return { rows, truncated: totalItems > rows.length };
+}
+
+export async function readBoundedAdminAccessAudits(
+  pb: PocketBase,
+  end: string,
+  limit = OBSERVABILITY_AUDIT_LIMIT,
+): Promise<EventReadResult> {
+  const rows: Record<string, unknown>[] = [];
+  let page = 1;
+  let totalItems = 0;
+  do {
+    const pageSize = Math.min(OBSERVABILITY_AUDIT_PAGE_SIZE, limit - rows.length);
+    if (pageSize <= 0) break;
+    const result = await pb.collection('app_admin_audit').getList(page, pageSize, {
+      filter: pb.filter('occurredAt <= {:end}', { end }),
+      sort: '-occurredAt',
+      fields: [
+        'id',
+        'targetUser',
+        'action',
+        'beforeRole',
+        'afterRole',
+        'beforeEnabled',
+        'afterEnabled',
+        'requestId',
+        'occurredAt',
+        'outcome',
+        'created',
+      ].join(','),
+      requestKey: null,
+    });
+    totalItems = result.totalItems;
+    rows.push(...result.items);
+    if (page >= result.totalPages) break;
+    page += 1;
+  } while (rows.length < limit);
   return { rows, truncated: totalItems > rows.length };
 }
 
@@ -149,8 +188,9 @@ export async function loadObservabilityDashboardData(
   const windowDuration = filters.window === '24h' ? 24 : filters.window === '7d' ? 168 : 720;
   const start = new Date(now.getTime() - windowDuration * 60 * 60 * 1000).toISOString();
   const end = now.toISOString();
-  const [events, logs, health, sharedRateLimitState] = await Promise.all([
+  const [events, audits, logs, health, sharedRateLimitState] = await Promise.all([
     readBoundedRecommendationEvents(pb, start, end),
+    readBoundedAdminAccessAudits(pb, end),
     readBoundedLocalStructuredLogs(),
     checkFanzoomHealth(pb),
     readSharedRateLimitMetrics().catch(() => null),
@@ -169,6 +209,8 @@ export async function loadObservabilityDashboardData(
     eventLimit: OBSERVABILITY_EVENT_LIMIT,
     logByteLimit: OBSERVABILITY_LOG_BYTE_LIMIT,
     sharedRateLimitState,
+    adminAccessAudits: audits.rows,
+    auditsTruncated: audits.truncated,
   }) as ObservabilityDashboardData;
 
   if (
@@ -192,5 +234,7 @@ export async function loadObservabilityDashboardData(
     eventLimit: OBSERVABILITY_EVENT_LIMIT,
     logByteLimit: OBSERVABILITY_LOG_BYTE_LIMIT,
     sharedRateLimitState,
+    adminAccessAudits: audits.rows,
+    auditsTruncated: audits.truncated,
   }) as ObservabilityDashboardData;
 }

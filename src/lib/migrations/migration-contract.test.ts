@@ -72,16 +72,20 @@ class MockCollection {
 
 class MockRecord {
   id = '';
-  readonly values = new Map<string, string | number>();
+  readonly values = new Map<string, string | number | boolean>();
 
   constructor(readonly collection: MockCollection) {}
 
-  set(name: string, value: string | number): void {
+  set(name: string, value: string | number | boolean): void {
     this.values.set(name, value);
   }
 
   getString(name: string): string {
     return String(this.values.get(name) || '');
+  }
+
+  getBool(name: string): boolean {
+    return this.values.get(name) === true;
   }
 }
 
@@ -141,6 +145,7 @@ function runMigration(app: MockApp, suffix: string): void {
     DateField: MockField,
     BoolField: MockField,
     RelationField: MockField,
+    AutodateField: MockField,
   };
   runInNewContext(readMigration(suffix), {
     ...fieldConstructors,
@@ -307,5 +312,66 @@ describe('PocketBase migration contract', () => {
     expect(collection?.fields.getByName('enabled')).toBeDefined();
     expect(collection?.indexes.filter((index) => index.includes('idx_app_admins_user_unique')))
       .toHaveLength(1);
+  });
+
+  it('creates a private append-only admin audit schema and backfills memberships once', () => {
+    const migration = readMigration('create_app_admin_audit.js');
+    for (const rule of ['listRule', 'viewRule', 'createRule', 'updateRule', 'deleteRule']) {
+      expect(migration).toContain(`${rule}: null`);
+    }
+    expect(migration).toContain('idx_app_admin_audit_occurred');
+    expect(migration).toContain('migration-bootstrap-');
+    expect(migration).not.toMatch(/app\.delete\s*\(/);
+
+    const app = new MockApp();
+    runMigration(app, 'bootstrap_core_schema.js');
+    runMigration(app, 'create_app_admins.js');
+    const membership = new MockRecord(app.findCollectionByNameOrId('app_admins'));
+    membership.set('user', 'owneruser123456');
+    membership.set('role', 'owner');
+    membership.set('enabled', true);
+    app.save(membership);
+
+    expect(() => runMigration(app, 'create_app_admin_audit.js')).not.toThrow();
+    expect(() => runMigration(app, 'create_app_admin_audit.js')).not.toThrow();
+    const audit = app.collections.get('app_admin_audit');
+    expect(audit).toMatchObject({
+      listRule: null,
+      viewRule: null,
+      createRule: null,
+      updateRule: null,
+      deleteRule: null,
+    });
+    expect(audit?.fields.getByName('actorAdmin')).toBeDefined();
+    expect(audit?.fields.getByName('targetUser')).toBeDefined();
+    expect(audit?.fields.getByName('outcome')).toBeDefined();
+    expect(app.findAllRecords('app_admin_audit')).toHaveLength(1);
+  });
+
+  it('adds app admin timestamps additively and idempotently', () => {
+    const migration = readMigration('add_app_admin_timestamps.js');
+    expect(migration).toContain('new AutodateField');
+    expect(migration).not.toMatch(/app\.delete\s*\(|findAllRecords\s*\(/);
+
+    const app = new MockApp();
+    runMigration(app, 'bootstrap_core_schema.js');
+    runMigration(app, 'create_app_admins.js');
+    const membership = new MockRecord(app.findCollectionByNameOrId('app_admins'));
+    membership.set('user', 'existinguser1234');
+    membership.set('role', 'viewer');
+    membership.set('enabled', true);
+    app.save(membership);
+
+    expect(() => runMigration(app, 'add_app_admin_timestamps.js')).not.toThrow();
+    expect(() => runMigration(app, 'add_app_admin_timestamps.js')).not.toThrow();
+    const collection = app.collections.get('app_admins');
+    expect(collection?.fields.getByName('created')).toMatchObject({
+      onCreate: true,
+    });
+    expect(collection?.fields.getByName('updated')).toMatchObject({
+      onCreate: true,
+      onUpdate: true,
+    });
+    expect(app.findAllRecords('app_admins')).toHaveLength(1);
   });
 });

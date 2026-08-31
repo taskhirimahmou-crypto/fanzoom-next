@@ -1,6 +1,6 @@
 export type ObservabilityWindowKey = '24h' | '7d' | '30d';
 export type ObservabilitySurface = 'all' | 'home' | 'for_you';
-export type ObservabilityTab = 'overview' | 'recommendations' | 'quality' | 'system';
+export type ObservabilityTab = 'overview' | 'recommendations' | 'quality' | 'security' | 'system';
 
 export type ObservabilityFilters = {
   window: ObservabilityWindowKey;
@@ -58,6 +58,7 @@ export type ObservabilityDashboardData = {
   freshness: {
     lastEventAt: string | null;
     lastLogAt: string | null;
+    lastAuditAt: string | null;
     lastObservedAt: string | null;
   };
   overview: {
@@ -100,6 +101,24 @@ export type ObservabilityDashboardData = {
     servedPartialFailures: number;
     recentIssues: SafeOperationalIssue[];
   };
+  security: {
+    activeAdmins: { owner: number; admin: number; viewer: number };
+    onlyOneActiveOwner: boolean;
+    changes: { grant: number; revoke: number; roleChange: number; enable: number };
+    successfulMutations: number;
+    unauthorizedAttempts: number;
+    failedMutations: number;
+    recentChanges: Array<{
+      occurredAt: string | null;
+      action: 'bootstrap' | 'grant' | 'role_change' | 'enable' | 'revoke' | 'access_denied' | 'mutation_failed';
+      beforeRole: 'owner' | 'admin' | 'viewer' | null;
+      afterRole: 'owner' | 'admin' | 'viewer' | null;
+      beforeEnabled: boolean;
+      afterEnabled: boolean;
+      outcome: 'success' | 'denied' | 'failed';
+      requestId: string | null;
+    }>;
+  };
   system: {
     pocketBaseFailures: number;
     atomicViewFailures: number;
@@ -135,8 +154,10 @@ export type ObservabilityDashboardData = {
   source: {
     eventRowsRead: number;
     logRowsRead: number;
+    auditRowsRead: number;
     eventsTruncated: boolean;
     logsTruncated: boolean;
+    auditsTruncated: boolean;
     logsAvailable: boolean;
     eventLimit: number | null;
     logByteLimit: number | null;

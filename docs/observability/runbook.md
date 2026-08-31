@@ -4,7 +4,7 @@
 
 ## مرزهای ایمنی v1
 
-- dashboard خصوصی فقط در Docker لوکال و مسیر `/admin/observability` فعال است. page و API هر دو مستقل از هم session و عضویت `app_admins` را با حداقل نقش `viewer` بررسی می‌کنند.
+- dashboard خصوصی فقط در Docker لوکال و مسیر `/admin/observability` فعال است. page و API هر دو مستقل از هم session و عضویت `app_admins` را با حداقل نقش `viewer` بررسی می‌کنند. `/admin/access` و `/api/admin/access` مستقلاً owner فعال می‌خواهند.
 - API خصوصی `/api/admin/observability` فقط aggregate می‌دهد، `private, no-store` است و خارج از `FANZOOM_LOCAL_DOCKER=true` یا برای PocketBase غیرمحلی fail-closed می‌شود.
 - گزارش Data Quality فقط با superuser محلی و فقط برای hostهای `127.0.0.1`، `localhost` یا `pocketbase` اجرا می‌شود. URLهای HTTPS و hostهای بیرونی عمداً رد می‌شوند.
 - logger فقط فیلدهای allowlist را می‌نویسد. password، token، cookie، authorization، credential، email، IP خام، متن مقاله/نظر و payload کاربر ورودی logger نیستند.
@@ -27,7 +27,8 @@ Invoke-RestMethod http://127.0.0.1:3000/api/health
 
 پاسخ عمومی فقط `status` دارد. در حالت سالم `200 {"status":"ok"}` و در حالت ناسالم `503 {"status":"unavailable"}` برمی‌گردد. این route فقط health API عمومی PocketBase را با `GET` و بدون credential صدا می‌زند؛ هیچ shared limiter bucket، write یا superuser session ایجاد نمی‌کند. flood protection آن در آینده بر عهده‌ی WAF است. جزئیات داخلی فقط به شکل errorCode محدود در log سرور دیده می‌شوند.
 
-برای dashboard، ابتدا کاربر آزمایشی را با راهنمای `docs/admin-access.md` به نقش `viewer` متصل کنید، سپس با همان کاربر وارد شوید و این URL را باز کنید:
+برای dashboard، اولین owner آزمایشی را طبق `docs/admin-access.md` bootstrap کنید. سپس owner می‌تواند بدون
+command از `/admin/access` دسترسی viewer/admin بدهد. با همان کاربر وارد شوید و این URL را باز کنید:
 
 ```text
 http://127.0.0.1:3000/admin/observability?window=24h&surface=all&algorithm=all&tab=overview
@@ -62,6 +63,10 @@ docker compose --env-file .env.docker.local -f compose.local.yml logs --no-color
 6. اگر `served_partial_failure` است، تعداد failure را از پاسخ endpoint و unique indexهای `recommendation_events` بررسی کنید؛ retry با همان idempotencyKey امن است.
 7. اگر `invalid_attribution` رشد کرده، زنجیره‌ی لینک توصیه تا served/open و انقضای ۳۰ دقیقه‌ای served evidence را بررسی کنید.
 8. اگر `atomic_view_failure` دیده شد، health PocketBase و بارگذاری `pb_hooks/atomic_views.pb.js` در image محلی را بررسی کنید. شکست migration در entrypoint با `pocketbase_migration_failure` ثبت می‌شود.
+9. اگر access mutation شکست خورد، ابتدا 401/403/429، Origin و CSRF را بررسی کنید؛ سپس با requestId امن
+   audit متناظر را پیدا کنید. email یا userId را وارد log نکنید.
+10. هشدار یک owner فعال به معنی lockout فعلی نیست؛ قبل از هر انتقال owner از recovery/transfer flow
+    جدا و تأییدشده استفاده کنید. فرم عادی owner را تغییر نمی‌دهد.
 
 ## Thresholdهای پیشنهادی اولیه
 
@@ -80,7 +85,9 @@ docker compose --env-file .env.docker.local -f compose.local.yml logs --no-color
 
 ## معماری dashboard خصوصی فعلی و آینده
 
-نسخه‌ی فعلی read-only است: session عادی کاربر با `requireUser` refresh می‌شود، membership خصوصی `app_admins` سمت سرور خوانده می‌شود و superuser client فقط در DAL سرور برای query محدود و aggregate استفاده می‌شود. dashboard هیچ mutation یا provisioning control ندارد.
+dashboard observability read-only باقی مانده است. Admin Management فقط در `/admin/access` mutation دارد:
+session عادی refresh می‌شود، owner و shared limiter بررسی می‌شوند و سپس superuser client در DAL سرور
+به hook خصوصی transactionی دسترسی می‌یابد. credential به Browser نمی‌رسد.
 
 برای محیط چند-instance آینده، query مستقیم باید با یک job زمان‌بندی‌شده جایگزین شود که metricهای aggregate و بدون شناسه را در collection خصوصی بنویسد. API داشبورد فقط همان aggregateها را با cache خصوصی/کوتاه‌عمر بخواند؛ rate limiter مشترک، audit trail دسترسی و retention اجرایی نیز پیش از production لازم‌اند. superuser credential هرگز نباید به browser، URL یا response برسد.
 

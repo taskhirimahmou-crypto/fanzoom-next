@@ -4,6 +4,7 @@ import {
   OBSERVABILITY_EVENT_PAGE_SIZE,
   assertLocalObservabilityRuntime,
   parseStructuredLogLines,
+  readBoundedAdminAccessAudits,
   readBoundedRecommendationEvents,
 } from './dashboard-data';
 
@@ -81,6 +82,20 @@ describe('observability dashboard data source', () => {
       })),
     } as unknown as PocketBase;
     expect(await readBoundedRecommendationEvents(pb, 'start', 'end', 1)).toMatchObject({ truncated: true });
+  });
+
+  it('reads admin audit rows with an upper time bound and pagination cap', async () => {
+    const getList = vi.fn().mockResolvedValue({
+      totalItems: 2,
+      totalPages: 1,
+      items: [{ action: 'grant' }, { action: 'revoke' }],
+    });
+    const filter = vi.fn(() => 'occurredAt <= end');
+    const pb = { filter, collection: vi.fn(() => ({ getList })) } as unknown as PocketBase;
+    const result = await readBoundedAdminAccessAudits(pb, '2026-08-31T12:00:00.000Z', 10);
+    expect(result).toEqual({ rows: [{ action: 'grant' }, { action: 'revoke' }], truncated: false });
+    expect(filter).toHaveBeenCalledWith('occurredAt <= {:end}', { end: '2026-08-31T12:00:00.000Z' });
+    expect(getList.mock.calls[0][2]).toMatchObject({ sort: '-occurredAt', requestKey: null });
   });
 
   it('accepts Docker log prefixes and ignores malformed or non-object lines', () => {

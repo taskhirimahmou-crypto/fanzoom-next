@@ -29,6 +29,8 @@ assert(adminEmail && adminPassword, 'Local PocketBase admin credentials are requ
 const runId = crypto.randomUUID().replaceAll('-', '').slice(0, 12);
 const testEmail = `api-${runId}@fanzoom.local`;
 const testPassword = `ApiLocal-${runId}!Z9`;
+const ownerEmail = `owner-${runId}@fanzoom.local`;
+const ownerPassword = `OwnerLocal-${runId}!Z9`;
 const feedId = `itest_${runId}`;
 const algorithmVersion = 'baseline-category-round-robin-v1';
 const results = [];
@@ -107,6 +109,28 @@ await adminPb.collection('users').create({
 const testUser = await adminPb.collection('users').getFirstListItem(
   adminPb.filter('email = {:email}', { email: testEmail }),
 );
+const ownerUser = await adminPb.collection('users').create({
+  email: ownerEmail,
+  password: ownerPassword,
+  passwordConfirm: ownerPassword,
+  verified: true,
+  displayName: 'Local access owner',
+});
+const ownerBootstrap = await execFileAsync(
+  process.execPath,
+  ['scripts/provision-local-app-admin.mjs', '--user-id', ownerUser.id, '--role', 'owner'],
+  { env: process.env },
+);
+assert(ownerBootstrap.stdout.includes('First local app owner provisioned securely'), 'First owner bootstrap failed');
+assert(!ownerBootstrap.stdout.includes(ownerUser.id), 'Owner bootstrap output exposed the user ID');
+assert(!ownerBootstrap.stdout.includes(ownerEmail), 'Owner bootstrap output exposed email');
+const secondBootstrap = await execFileAsync(
+  process.execPath,
+  ['scripts/provision-local-app-admin.mjs', '--user-id', testUser.id, '--role', 'viewer'],
+  { env: process.env },
+).then(() => null, (error) => error);
+assert(secondBootstrap && secondBootstrap.code !== 0, 'Provisioning bypassed the owner management panel');
+pass('first owner bootstrap is one-time and daily provisioning moves to the panel');
 
 const anonymous = await jsonRequest('/api/recommendation-events', {
   method: 'POST',
@@ -125,6 +149,15 @@ const cookieMatch = setCookie.match(/pb_auth=([^;]+)/);
 assert(cookieMatch, 'Authentication cookie was not returned');
 const cookie = `pb_auth=${cookieMatch[1]}`;
 pass('authenticated session cookie is issued');
+
+const ownerLogin = await jsonRequest('/api/auth/login', {
+  method: 'POST',
+  body: JSON.stringify({ email: ownerEmail, password: ownerPassword }),
+});
+assert(ownerLogin.response.status === 200, 'Local owner login failed');
+const ownerCookieMatch = (ownerLogin.response.headers.get('set-cookie') ?? '').match(/pb_auth=([^;]+)/);
+assert(ownerCookieMatch, 'Owner authentication cookie was not returned');
+const ownerCookie = `pb_auth=${ownerCookieMatch[1]}`;
 
 const userPb = new PocketBase(localPb);
 await userPb.collection('users').authWithPassword(testEmail, testPassword);
@@ -156,25 +189,62 @@ assert(
 assert(!normalUserDashboardHtml.includes('مرکز پایش فن‌زوم'), 'Normal user 403 response rendered dashboard content');
 pass('observability dashboard blocks anonymous and normal users');
 
-for (let attempt = 0; attempt < 2; attempt += 1) {
-  const provisioning = await execFileAsync(
-    process.execPath,
-    [
-      'scripts/provision-local-app-admin.mjs',
-      '--user-id',
-      testUser.id,
-      '--role',
-      'viewer',
-    ],
-    { env: process.env },
-  );
-  assert(
-    provisioning.stdout.includes('role=viewer, enabled=true'),
-    'Local admin provisioning did not return its non-sensitive success status',
-  );
-  assert(!provisioning.stdout.includes(testUser.id), 'Provisioning output exposed the user ID');
-  assert(!provisioning.stdout.includes(testEmail), 'Provisioning output exposed the user email');
-}
+const ownerAccessPage = await fetch(`${localApp}/admin/access`, { headers: { Cookie: ownerCookie } });
+assert(ownerAccessPage.status === 200, 'Owner admin access page failed');
+const anonymousAccess = await jsonRequest('/api/admin/access');
+assert(anonymousAccess.response.status === 401, 'Anonymous admin access API must return 401');
+const normalAccess = await jsonRequest('/api/admin/access', { cookie });
+assert(normalAccess.response.status === 403, 'Normal user admin access API must return 403');
+
+const searchAccess = await jsonRequest(`/api/admin/access?q=${encodeURIComponent(testEmail)}&page=1&perPage=10`, {
+  cookie: ownerCookie,
+});
+assert(searchAccess.response.status === 200, 'Owner user search failed');
+assert(searchAccess.body.users.length === 1, 'Owner user search did not return the target');
+assert(searchAccess.body.users[0].email === testEmail, 'Owner search returned the wrong user');
+assert(!JSON.stringify(searchAccess.body).includes(testUser.id), 'Owner access DTO exposed a raw user ID');
+const csrfCookieMatch = (searchAccess.response.headers.get('set-cookie') ?? '').match(/fz_admin_csrf=([^;]+)/);
+assert(csrfCookieMatch && searchAccess.body.csrfToken, 'Owner access CSRF boundary was not issued');
+const ownerAccessCookie = `${ownerCookie}; fz_admin_csrf=${csrfCookieMatch[1]}`;
+const targetRef = searchAccess.body.users[0].targetRef;
+
+const forgedOwner = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'owner', enabled: true }),
+});
+assert(forgedOwner.response.status === 400, 'Normal admin form allowed owner grant');
+const forgedActor = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true, actor: ownerUser.id }),
+});
+assert(forgedActor.response.status === 400, 'Admin access API accepted a forged actor');
+const badOrigin = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: 'https://evil.test', 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+});
+assert(badOrigin.response.status === 403, 'Admin access API accepted an invalid Origin');
+const badCsrf = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': 'invalid' },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+});
+assert(badCsrf.response.status === 403, 'Admin access API accepted an invalid CSRF token');
+
+const grantViewer = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+});
+assert(grantViewer.response.status === 200 && grantViewer.body.result.action === 'grant', 'Owner viewer grant failed');
+pass('owner-only search, CSRF, Origin and server-derived actor are enforced');
 
 const appAdminRows = await adminPb.collection('app_admins').getFullList({
   filter: adminPb.filter('user = {:userId}', { userId: testUser.id }),
@@ -203,13 +273,29 @@ assert(viewerPage.status === 200, 'Viewer observability page access failed');
 const viewerPageHtml = await viewerPage.text();
 assert(!viewerPageHtml.includes(testEmail), 'Viewer dashboard HTML exposed the account email');
 assert(!viewerPageHtml.includes(testUser.id), 'Viewer dashboard HTML exposed the raw user ID');
-await adminPb.collection('app_admins').update(appAdminRows[0].id, { role: 'admin' });
+const changeAdmin = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'admin', enabled: true }),
+});
+assert(changeAdmin.response.status === 200 && changeAdmin.body.result.action === 'role_change', 'Viewer to admin change failed');
 const adminDashboard = await jsonRequest(
   '/api/admin/observability?window=7d&surface=home&algorithm=all',
   { cookie },
 );
 assert(adminDashboard.response.status === 200, 'Admin observability API access failed');
-await adminPb.collection('app_admins').update(appAdminRows[0].id, { role: 'viewer' });
+const adminCannotManage = await jsonRequest('/api/admin/access', { cookie });
+assert(adminCannotManage.response.status === 403, 'Admin role managed access roles');
+const changeViewer = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+});
+assert(changeViewer.response.status === 200, 'Admin to viewer change failed');
+const viewerCannotManage = await jsonRequest('/api/admin/access', { cookie });
+assert(viewerCannotManage.response.status === 403, 'Viewer role managed access roles');
 pass('viewer and admin can read only private aggregate observability data');
 
 for (const operation of ['list', 'create', 'update', 'delete']) {
@@ -242,13 +328,99 @@ try {
   duplicateMembershipStatus = error?.status ?? 0;
 }
 assert(duplicateMembershipStatus === 400, 'Unique app admin membership was not enforced');
-await adminPb.collection('app_admins').update(appAdminRows[0].id, { enabled: false });
+for (const operation of ['list', 'create', 'update', 'delete']) {
+  let status = 0;
+  try {
+    if (operation === 'list') await userPb.collection('app_admin_audit').getList(1, 1);
+    if (operation === 'create') await userPb.collection('app_admin_audit').create({ action: 'grant' });
+    if (operation === 'update') {
+      const firstAudit = await adminPb.collection('app_admin_audit').getList(1, 1);
+      await userPb.collection('app_admin_audit').update(firstAudit.items[0].id, { outcome: 'failed' });
+    }
+    if (operation === 'delete') {
+      const firstAudit = await adminPb.collection('app_admin_audit').getList(1, 1);
+      await userPb.collection('app_admin_audit').delete(firstAudit.items[0].id);
+    }
+  } catch (error) {
+    status = error?.status ?? 0;
+  }
+  assert(status === 403, `Direct PocketBase app_admin_audit ${operation} was not blocked`);
+}
+
+const revokeViewer = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: false }),
+});
+assert(revokeViewer.response.status === 200 && revokeViewer.body.result.action === 'revoke', 'Owner revoke failed');
 const disabledAdminDashboard = await jsonRequest(
   '/api/admin/observability?window=24h&surface=all&algorithm=all',
   { cookie },
 );
 assert(disabledAdminDashboard.response.status === 403, 'Disabled admin observability access must return 403');
-pass('app admin provisioning is idempotent, private, unique and disableable');
+const reenableViewer = await jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+});
+assert(reenableViewer.response.status === 200 && reenableViewer.body.result.action === 'enable', 'Owner re-enable failed');
+const accessAudits = await adminPb.collection('app_admin_audit').getFullList({
+  filter: adminPb.filter('targetUser = {:userId}', { userId: testUser.id }),
+  sort: '+occurredAt',
+});
+assert(accessAudits.some((audit) => audit.action === 'grant' && audit.outcome === 'success'), 'Grant audit is missing');
+assert(accessAudits.some((audit) => audit.action === 'role_change' && audit.outcome === 'success'), 'Role-change audit is missing');
+assert(accessAudits.some((audit) => audit.action === 'revoke' && audit.outcome === 'success'), 'Revoke audit is missing');
+assert(!JSON.stringify(accessAudits).includes(testEmail), 'Audit records contain target email');
+pass('admin membership and append-only audit update atomically through owner API');
+
+const ownerTargetRef = searchAccess.body.admins.find((item) => item.role === 'owner')?.targetRef;
+assert(ownerTargetRef, 'Owner target reference was not available to the owner');
+const ownerLockoutAttempts = await Promise.all(Array.from({ length: 2 }, () => jsonRequest('/api/admin/access', {
+  cookie: ownerAccessCookie,
+  method: 'POST',
+  headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+  body: JSON.stringify({ targetRef: ownerTargetRef, role: 'viewer', enabled: false }),
+})));
+assert(ownerLockoutAttempts.every((attempt) => attempt.response.status === 409), 'Concurrent owner demotion was not blocked');
+const activeOwnersAfterRace = await adminPb.collection('app_admins').getList(1, 10, {
+  filter: 'role = "owner" && enabled = true',
+});
+assert(activeOwnersAfterRace.totalItems === 1, 'Concurrent requests removed the last active owner');
+pass('self-lockout and concurrent last-owner demotion are blocked');
+
+const securityDashboard = await jsonRequest(
+  '/api/admin/observability?window=24h&surface=all&algorithm=all',
+  { cookie },
+);
+assert(securityDashboard.response.status === 200, 'Security dashboard metrics failed');
+assert(securityDashboard.body.security.activeAdmins.owner === 1, 'Audit-derived owner count is wrong');
+assert(securityDashboard.body.security.activeAdmins.viewer >= 1, 'Audit-derived viewer count is wrong');
+assert(securityDashboard.body.security.changes.grant >= 1, 'Audit-derived grant metric is missing');
+const securitySerialized = JSON.stringify(securityDashboard.body.security);
+assert(!securitySerialized.includes(testEmail), 'Security dashboard exposed email');
+assert(!securitySerialized.includes(testUser.id), 'Security dashboard exposed user ID');
+assert(!securitySerialized.includes(ownerUser.id), 'Security dashboard exposed owner ID');
+pass('dashboard security metrics come from audit without PII');
+
+let adminAccessRateLimited = null;
+for (let index = 0; index < 35; index += 1) {
+  const attempt = await jsonRequest('/api/admin/access', {
+    cookie: ownerAccessCookie,
+    method: 'POST',
+    headers: { Origin: localApp, 'X-Fanzoom-CSRF': searchAccess.body.csrfToken },
+    body: JSON.stringify({ targetRef, role: 'viewer', enabled: true }),
+  });
+  if (attempt.response.status === 429) {
+    adminAccessRateLimited = attempt;
+    break;
+  }
+}
+assert(adminAccessRateLimited?.body?.error === 'rate_limited', 'Admin access mutation rate limit did not return 429');
+assert(Number(adminAccessRateLimited.response.headers.get('retry-after')) >= 1, 'Admin access rate limit lacks Retry-After');
+pass('admin access mutation shared rate limit returns 429 and Retry-After');
 
 const beforeDisabledEvents = await adminPb.collection('recommendation_events').getFullList({
   filter: adminPb.filter('userId = {:userId}', { userId: testUser.id }),

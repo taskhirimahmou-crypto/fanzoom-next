@@ -8,6 +8,7 @@ import {
 
 const EVENT_LIMIT = 10_000;
 const EVENT_PAGE_SIZE = 200;
+const AUDIT_LIMIT = 5_000;
 const LOG_BYTE_LIMIT = 5 * 1024 * 1024;
 
 function localPocketBaseUrl() {
@@ -102,6 +103,27 @@ async function readEvents(pb, start, end) {
   return { rows, truncated: totalItems > rows.length };
 }
 
+async function readAdminAccessAudits(pb, end) {
+  const rows = [];
+  let page = 1;
+  let totalItems = 0;
+  do {
+    const pageSize = Math.min(EVENT_PAGE_SIZE, AUDIT_LIMIT - rows.length);
+    if (pageSize <= 0) break;
+    const result = await pb.collection('app_admin_audit').getList(page, pageSize, {
+      filter: pb.filter('occurredAt <= {:end}', { end }),
+      sort: '-occurredAt',
+      fields: 'id,targetUser,action,beforeRole,afterRole,beforeEnabled,afterEnabled,requestId,occurredAt,outcome,created',
+      requestKey: null,
+    });
+    totalItems = result.totalItems;
+    rows.push(...result.items);
+    if (page >= result.totalPages) break;
+    page += 1;
+  } while (rows.length < AUDIT_LIMIT);
+  return { rows, truncated: totalItems > rows.length };
+}
+
 async function readSharedRateLimitState() {
   const secret = process.env.SHARED_RATE_LIMIT_HOOK_SECRET || process.env.VIEW_RATE_LIMIT_SECRET;
   if (!secret || Buffer.byteLength(secret, 'utf8') < 32) return null;
@@ -131,6 +153,7 @@ async function main() {
   }, now);
   if (!parsed.ok) throw new Error(parsed.errorCode);
   const events = await readEvents(pb, parsed.filters.window.start, parsed.filters.window.end);
+  const audits = await readAdminAccessAudits(pb, parsed.filters.window.end);
   const logs = await readStructuredLogs(logFileArgument());
   const sharedRateLimitState = await readSharedRateLimitState();
   const dashboard = aggregateObservability(events.rows, logs.rows, {
@@ -146,6 +169,8 @@ async function main() {
     eventLimit: EVENT_LIMIT,
     logByteLimit: LOG_BYTE_LIMIT,
     sharedRateLimitState,
+    adminAccessAudits: audits.rows,
+    auditsTruncated: audits.truncated,
   });
   if (
     parsed.filters.algorithmVersion !== 'all' &&

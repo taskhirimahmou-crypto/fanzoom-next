@@ -9,11 +9,13 @@ function fail(message) {
 }
 
 function readArguments(argv) {
-  const result = { enabled: true };
+  const result = { enabled: true, recovery: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--disabled') {
       result.enabled = false;
+    } else if (argument === '--recovery') {
+      result.recovery = true;
     } else if (argument === '--user-id' || argument === '--role') {
       const value = argv[index + 1];
       if (!value || value.startsWith('--')) fail(`${argument} requires a value`);
@@ -59,21 +61,70 @@ async function main() {
   await pb.collection('_superusers').authWithPassword(email, password);
   await pb.collection('users').getOne(options.userId, { fields: 'id' });
 
+  const activeOwners = await pb.collection('app_admins').getList(1, 2, {
+    filter: 'role = "owner" && enabled = true',
+    fields: 'id,user',
+    requestKey: null,
+  });
+  if (activeOwners.totalItems === 0) {
+    if (options.role !== 'owner' || options.enabled !== true || options.recovery) {
+      fail('The first local app admin must be one enabled owner without --recovery');
+    }
+    await pb.send('/api/fanzoom/admin-access/bootstrap-owner', {
+      method: 'POST',
+      body: { userId: options.userId, requestId: crypto.randomUUID() },
+      requestKey: null,
+    });
+    console.log('First local app owner provisioned securely.');
+    return;
+  }
+
+  if (!options.recovery) {
+    fail('An owner already exists. Manage viewer/admin access in /admin/access; use --recovery only for recovery.');
+  }
+
   let existing = null;
   try {
     existing = await pb.collection('app_admins').getFirstListItem(
       pb.filter('user = {:userId}', { userId: options.userId }),
-      { fields: 'id' },
+      { fields: 'id,role,enabled' },
     );
   } catch (error) {
     if (!(error instanceof ClientResponseError) || error.status !== 404) throw error;
   }
 
+  if (
+    existing &&
+    existing.role === 'owner' &&
+    existing.enabled === true &&
+    (options.role !== 'owner' || options.enabled !== true) &&
+    activeOwners.totalItems <= 1
+  ) fail('Recovery cannot disable or demote the last active owner');
+
   const data = { user: options.userId, role: options.role, enabled: options.enabled };
   if (existing) await pb.collection('app_admins').update(existing.id, data);
   else await pb.collection('app_admins').create(data);
 
-  console.log(`Local app admin provisioned: role=${options.role}, enabled=${options.enabled}`);
+  const action = !existing
+    ? 'grant'
+    : existing.role !== options.role
+      ? 'role_change'
+      : existing.enabled && !options.enabled
+        ? 'revoke'
+        : 'enable';
+  await pb.collection('app_admin_audit').create({
+    targetUser: options.userId,
+    action,
+    beforeRole: existing?.role ?? '',
+    afterRole: options.role,
+    beforeEnabled: existing?.enabled === true,
+    afterEnabled: options.enabled,
+    requestId: crypto.randomUUID(),
+    occurredAt: new Date().toISOString(),
+    outcome: 'success',
+  });
+
+  console.log(`Local recovery completed: role=${options.role}, enabled=${options.enabled}`);
 }
 
 main().catch(() => {

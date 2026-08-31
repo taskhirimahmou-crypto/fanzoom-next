@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/Icon';
 import type { AppAdminRole } from '@/lib/admin/access';
@@ -37,6 +38,7 @@ const TABS: Array<{ key: ObservabilityTab; label: string; icon: IconName }> = [
   { key: 'overview', label: 'نمای کلی', icon: 'space_dashboard' },
   { key: 'recommendations', label: 'پیشنهادها', icon: 'conversion_path' },
   { key: 'quality', label: 'کیفیت داده', icon: 'fact_check' },
+  { key: 'security', label: 'امنیت و دسترسی', icon: 'manage_accounts' },
   { key: 'system', label: 'سیستم', icon: 'dns' },
 ];
 
@@ -283,6 +285,68 @@ function Quality({ data }: { data: ObservabilityDashboardData }) {
   );
 }
 
+const ACCESS_ACTION_LABELS: Record<string, string> = {
+  bootstrap: 'راه‌اندازی اولیه',
+  grant: 'اعطای دسترسی',
+  role_change: 'تغییر نقش',
+  enable: 'فعال‌سازی',
+  revoke: 'لغو دسترسی',
+  access_denied: 'تلاش غیرمجاز',
+  mutation_failed: 'تغییر ناموفق',
+};
+
+function SecurityAccess({ data }: { data: ObservabilityDashboardData }) {
+  const security = data.security;
+  return (
+    <div className="space-y-6">
+      {security.onlyOneActiveOwner && (
+        <div role="alert" className="flex items-start gap-3 rounded-2xl border border-[var(--cat-amber)]/50 bg-[color-mix(in_srgb,var(--cat-amber)_12%,transparent)] p-4 leading-7">
+          <Icon name="warning" className="mt-1 text-[var(--cat-amber)]" />
+          فقط یک owner فعال در audit معتبر دیده می‌شود. تغییر این owner از فرم عادی عمداً مسدود است.
+        </div>
+      )}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="وضعیت دسترسی مدیران">
+        <MetricCard label="owner فعال" value={count.format(security.activeAdmins.owner)} unit="حساب مدیریتی" denominator="آخرین وضعیت موفق هر target در audit" definition="تعداد ownerهای فعال بازسازی‌شده از audit خصوصی؛ شناسه یا ایمیل وارد پاسخ نمی‌شود." icon="shield" status={security.onlyOneActiveOwner ? 'warn' : 'good'} />
+        <MetricCard label="admin فعال" value={count.format(security.activeAdmins.admin)} unit="حساب مدیریتی" denominator="آخرین وضعیت موفق هر target در audit" definition="adminهای فعال که اجازه‌ی مشاهده و قابلیت‌های مدیریتی مجاز آینده دارند." icon="manage_accounts" />
+        <MetricCard label="viewer فعال" value={count.format(security.activeAdmins.viewer)} unit="حساب مدیریتی" denominator="آخرین وضعیت موفق هر target در audit" definition="viewerهای فعال با دسترسی فقط‌خواندنی به داشبورد." icon="visibility" />
+        <MetricCard label="تغییر موفق" value={count.format(security.successfulMutations)} unit="mutation" denominator="auditهای grant/revoke/enable/role_change در بازه" definition="تغییرهایی که mutation و audit آن‌ها در یک transaction موفق شده است." icon="check_circle" status="good" />
+      </section>
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <MetricCard label="اعطا" value={count.format(security.changes.grant)} unit="grant" denominator={`${count.format(security.successfulMutations)} تغییر موفق`} definition="عضویت viewer/admin که برای target بدون عضویت قبلی ساخته شده است." icon="person_add" />
+        <MetricCard label="لغو" value={count.format(security.changes.revoke)} unit="revoke" denominator={`${count.format(security.successfulMutations)} تغییر موفق`} definition="عضویت موجود که بدون حذف audit-friendly record غیرفعال شده است." icon="lock" status={security.changes.revoke ? 'warn' : 'neutral'} />
+        <MetricCard label="تلاش غیرمجاز" value={count.format(security.unauthorizedAttempts)} unit="attempt احراز‌شده" denominator="auditهای access_denied در بازه" definition="تلاش کاربر احراز‌شده‌ی فاقد owner برای دسترسی به API مدیریت؛ anonymous بدون عملیات privileged audit نمی‌شود." icon="gpp_bad" status={security.unauthorizedAttempts ? 'warn' : 'good'} />
+        <MetricCard label="mutation ناموفق" value={count.format(security.failedMutations)} unit="attempt" denominator="auditهای mutation_failed/failed در بازه" definition="validation، محافظ owner یا خطای mutation که audit معتبر برای آن ثبت شده است." icon="data_alert" status={security.failedMutations ? 'bad' : 'good'} />
+      </section>
+      <Panel>
+        <h2 className="text-xl font-black">آخرین تغییرهای دسترسی</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">بدون ایمیل، userId، actor، IP یا credential؛ فقط نوع تغییر و requestId امن.</p>
+        {security.recentChanges.length === 0 ? (
+          <p className="mt-4 rounded-2xl bg-surface-low p-6 text-center text-on-surface-variant">تغییری در بازه وجود ندارد.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-outline-variant">
+            <table className="min-w-[760px] w-full text-right text-sm">
+              <caption className="sr-only">آخرین تغییرهای دسترسی بدون اطلاعات شخصی</caption>
+              <thead className="bg-surface-low text-xs text-on-surface-variant"><tr><th className="px-4 py-3">زمان</th><th className="px-4 py-3">عملیات</th><th className="px-4 py-3">قبل</th><th className="px-4 py-3">بعد</th><th className="px-4 py-3">نتیجه</th><th className="px-4 py-3">requestId</th></tr></thead>
+              <tbody className="divide-y divide-outline-variant/60">
+                {security.recentChanges.map((change, index) => (
+                  <tr key={`${change.requestId ?? 'none'}-${change.occurredAt}-${index}`} className="bg-surface-container">
+                    <td className="whitespace-nowrap px-4 py-3">{formatDate(change.occurredAt)}</td>
+                    <td className="px-4 py-3">{ACCESS_ACTION_LABELS[change.action] ?? change.action}</td>
+                    <td className="px-4 py-3 font-mono">{change.beforeRole ?? '—'} / {change.beforeEnabled ? 'on' : 'off'}</td>
+                    <td className="px-4 py-3 font-mono">{change.afterRole ?? '—'} / {change.afterEnabled ? 'on' : 'off'}</td>
+                    <td className="px-4 py-3 font-mono">{change.outcome}</td>
+                    <td className="max-w-52 truncate px-4 py-3 font-mono text-xs" dir="ltr">{change.requestId ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
 function System({ data }: { data: ObservabilityDashboardData }) {
   return (
     <div className="space-y-6">
@@ -404,7 +468,7 @@ export function ObservabilityDashboard({
   };
 
   const isEmpty = useMemo(() => data
-    ? data.quality.funnelEvents === 0 && data.overview.totalResponses === 0
+    ? data.quality.funnelEvents === 0 && data.overview.totalResponses === 0 && data.source.auditRowsRead === 0
     : false, [data]);
 
   return (
@@ -426,6 +490,11 @@ export function ObservabilityDashboard({
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              {role === 'owner' && (
+                <Link href="/admin/access" className="inline-flex items-center gap-2 rounded-full border border-outline px-4 py-2.5 font-bold hover:bg-surface-low">
+                  <Icon name="manage_accounts" className="text-lg" />مدیریت دسترسی
+                </Link>
+              )}
               <div className="text-sm text-on-surface-variant">
                 <p>آخرین مشاهده</p>
                 <p className="mt-1 font-mono font-bold text-on-surface">{formatDate(data?.freshness.lastObservedAt ?? null)}</p>
@@ -487,7 +556,7 @@ export function ObservabilityDashboard({
             log mirror محلی در دسترس نیست؛ metricهای 429، 5xx، latency و incident ممکن است نمونه نداشته باشند.
           </div>
         )}
-        {data && (data.source.eventsTruncated || data.source.logsTruncated) && (
+        {data && (data.source.eventsTruncated || data.source.logsTruncated || data.source.auditsTruncated) && (
           <div role="status" className="mb-5 rounded-2xl border border-outline bg-surface-low p-4 text-sm">
             پوشش منبع به سقف ایمنی query رسیده است؛ اعداد فقط بخش خوانده‌شده را نشان می‌دهند.
           </div>
@@ -502,6 +571,7 @@ export function ObservabilityDashboard({
             {tab === 'overview' && <Overview data={data} />}
             {tab === 'recommendations' && <Recommendations data={data} />}
             {tab === 'quality' && <Quality data={data} />}
+            {tab === 'security' && <SecurityAccess data={data} />}
             {tab === 'system' && <System data={data} />}
           </div>
         ) : null}
@@ -509,7 +579,7 @@ export function ObservabilityDashboard({
         {data && (
           <footer className="mt-8 flex flex-col gap-2 rounded-2xl border border-outline-variant bg-surface-container px-4 py-3 text-xs text-on-surface-variant md:flex-row md:items-center md:justify-between">
             <p>بازه: {formatDate(data.window.start)} تا {formatDate(data.window.end)} · {data.window.timeZone}</p>
-            <p>آخرین refresh: {formatDate(data.generatedAt)} · {count.format(data.source.eventRowsRead)} event · {count.format(data.source.logRowsRead)} log</p>
+            <p>آخرین refresh: {formatDate(data.generatedAt)} · {count.format(data.source.eventRowsRead)} event · {count.format(data.source.logRowsRead)} log · {count.format(data.source.auditRowsRead)} audit</p>
           </footer>
         )}
       </div>

@@ -1,6 +1,6 @@
 export const OBSERVABILITY_WINDOW_KEYS = ['24h', '7d', '30d'];
 export const OBSERVABILITY_SURFACES = ['all', 'home', 'for_you'];
-export const OBSERVABILITY_TABS = ['overview', 'recommendations', 'quality', 'system'];
+export const OBSERVABILITY_TABS = ['overview', 'recommendations', 'quality', 'security', 'system'];
 
 const FUNNEL_STAGES = ['served', 'impression', 'open', 'engaged'];
 const RECOMMENDATION_SURFACES = new Set(['home', 'for_you']);
@@ -66,6 +66,20 @@ export const OBSERVABILITY_METRIC_DEFINITIONS = [
     denominator: 'مرحله‌ی قبلی برای conversion و served برای نرخ کلی',
     unit: 'count-and-percent',
   },
+  {
+    id: 'activeAdminsByRole',
+    label: 'مدیران فعال براساس نقش',
+    definition: 'آخرین وضعیت موفق هر target در audit خصوصی؛ bootstrap، grant و تغییرهای بعدی را در بر می‌گیرد.',
+    denominator: 'targetهای دارای audit معتبر تا پایان بازه',
+    unit: 'count',
+  },
+  {
+    id: 'adminAccessChanges',
+    label: 'تغییرهای دسترسی',
+    definition: 'تعداد grant، revoke، enable و role_change موفق در audit خصوصی طی بازه.',
+    denominator: 'auditهای موفق مدیریت دسترسی در بازه',
+    unit: 'count',
+  },
 ];
 
 function emptyStages() {
@@ -108,6 +122,26 @@ function eventTimestamp(event) {
 
 function logTimestamp(log) {
   return validDate(log.timestamp);
+}
+
+function auditTimestamp(audit) {
+  return validDate(audit.occurredAt) ?? validDate(audit.created);
+}
+
+function safeAuditChange(audit) {
+  const role = (value) => ['owner', 'admin', 'viewer'].includes(value) ? value : null;
+  return {
+    occurredAt: typeof audit.occurredAt === 'string' ? audit.occurredAt : null,
+    action: ['bootstrap', 'grant', 'role_change', 'enable', 'revoke', 'access_denied', 'mutation_failed'].includes(audit.action)
+      ? audit.action
+      : 'mutation_failed',
+    beforeRole: role(audit.beforeRole),
+    afterRole: role(audit.afterRole),
+    beforeEnabled: audit.beforeEnabled === true,
+    afterEnabled: audit.afterEnabled === true,
+    outcome: ['success', 'denied', 'failed'].includes(audit.outcome) ? audit.outcome : 'failed',
+    requestId: typeof audit.requestId === 'string' && UUID.test(audit.requestId) ? audit.requestId : null,
+  };
 }
 
 function hasCompleteRecommendationAttribution(event) {
@@ -429,6 +463,44 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
   )));
   const lastLogAt = latestIso(logs.map((log) => log.timestamp));
 
+  const rawAudits = Array.isArray(options.adminAccessAudits) ? options.adminAccessAudits : [];
+  const auditsToEnd = rawAudits.filter((audit) => (
+    audit && typeof audit === 'object' && !Array.isArray(audit) &&
+    auditTimestamp(audit) !== null && auditTimestamp(audit) <= endMs
+  ));
+  const auditsInWindow = auditsToEnd.filter((audit) => auditTimestamp(audit) >= startMs);
+  const latestStateByTarget = new Map();
+  for (const audit of [...auditsToEnd].sort((left, right) => auditTimestamp(right) - auditTimestamp(left))) {
+    if (
+      audit.outcome !== 'success' ||
+      typeof audit.targetUser !== 'string' || !audit.targetUser ||
+      !['owner', 'admin', 'viewer'].includes(audit.afterRole) ||
+      latestStateByTarget.has(audit.targetUser)
+    ) continue;
+    latestStateByTarget.set(audit.targetUser, {
+      role: audit.afterRole,
+      enabled: audit.afterEnabled === true,
+    });
+  }
+  const activeAdmins = { owner: 0, admin: 0, viewer: 0 };
+  for (const state of latestStateByTarget.values()) {
+    if (state.enabled) activeAdmins[state.role] += 1;
+  }
+  const successfulAccessChanges = auditsInWindow.filter((audit) => (
+    audit.outcome === 'success' && ['grant', 'role_change', 'enable', 'revoke'].includes(audit.action)
+  ));
+  const changeCounts = {
+    grant: successfulAccessChanges.filter((audit) => audit.action === 'grant').length,
+    revoke: successfulAccessChanges.filter((audit) => audit.action === 'revoke').length,
+    roleChange: successfulAccessChanges.filter((audit) => audit.action === 'role_change').length,
+    enable: successfulAccessChanges.filter((audit) => audit.action === 'enable').length,
+  };
+  const recentAccessChanges = [...auditsInWindow]
+    .sort((left, right) => auditTimestamp(right) - auditTimestamp(left))
+    .slice(0, 20)
+    .map(safeAuditChange);
+  const lastAuditAt = latestIso(auditsToEnd.map((audit) => audit.occurredAt ?? audit.created));
+
   return {
     schemaVersion: 'observability-dashboard-v1',
     generatedAt: (options.now instanceof Date ? options.now : new Date(options.now ?? Date.now())).toISOString(),
@@ -447,7 +519,8 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
     freshness: {
       lastEventAt,
       lastLogAt,
-      lastObservedAt: latestIso([lastEventAt, lastLogAt].filter(Boolean)),
+      lastAuditAt,
+      lastObservedAt: latestIso([lastEventAt, lastLogAt, lastAuditAt].filter(Boolean)),
     },
     overview: {
       health: options.health ?? 'unknown',
@@ -491,6 +564,17 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
       servedPartialFailures: uniqueOperationalCount(logs, 'served_partial_failure'),
       recentIssues,
     },
+    security: {
+      activeAdmins,
+      onlyOneActiveOwner: activeAdmins.owner === 1,
+      changes: changeCounts,
+      successfulMutations: successfulAccessChanges.length,
+      unauthorizedAttempts: auditsInWindow.filter((audit) => audit.action === 'access_denied').length,
+      failedMutations: auditsInWindow.filter((audit) => (
+        audit.action === 'mutation_failed' || audit.outcome === 'failed'
+      )).length,
+      recentChanges: recentAccessChanges,
+    },
     system: {
       pocketBaseFailures: uniqueOperationalCount(logs, 'pocketbase_failure'),
       atomicViewFailures: uniqueOperationalCount(logs, 'atomic_view_failure'),
@@ -519,8 +603,10 @@ export function aggregateObservability(rawEvents, rawLogs = [], options = {}) {
     source: {
       eventRowsRead: rawEvents.length,
       logRowsRead: rawLogs.length,
+      auditRowsRead: rawAudits.length,
       eventsTruncated: options.eventsTruncated === true,
       logsTruncated: options.logsTruncated === true,
+      auditsTruncated: options.auditsTruncated === true,
       logsAvailable: options.logsAvailable !== false,
       eventLimit: options.eventLimit ?? null,
       logByteLimit: options.logByteLimit ?? null,

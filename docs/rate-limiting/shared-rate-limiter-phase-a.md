@@ -35,6 +35,8 @@
 | `POST/DELETE /api/bookmarks` و trusted bookmark write | `bookmarks` | visitor + user | 1 / 1 |
 | `POST /api/views` | `views` | verified visitor | 1 / 1 |
 | `GET /api/admin/observability` و membership/data query | `admin-observability` | visitor + user | 1 / 1 |
+| `GET /api/admin/access` و owner search/list | `admin-access-read` | visitor + user | 1 / 1 |
+| `POST /api/admin/access` و owner mutation/audit | `admin-access-mutate` | visitor + user | 1 / 1 |
 
 `getAdminPocketBase` آخرین guard است. تلاش بدون permit، metric `privileged_operation_without_shared_limiter` تولید می‌کند و باید همیشه صفر باشد.
 
