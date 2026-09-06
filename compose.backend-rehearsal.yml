@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: docker/pocketbase.Dockerfile
       args:
-        PB_VERSION: "0.40.0"
+        PB_VERSION: "${PB_REHEARSAL_VERSION:-0.40.0}"
     entrypoint: ["/rehearsal/pocketbase-rehearsal-entrypoint.sh"]
     environment:
       PB_SUPERUSER_EMAIL: ${PB_REHEARSAL_SUPERUSER_EMAIL}
@@ -30,5 +30,34 @@ services:
       start_period: 3s
     restart: unless-stopped
 
+  web:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+    environment:
+      FANZOOM_LOCAL_DOCKER: "true"
+      FANZOOM_LOCAL_PB_PORT: "${PB_REHEARSAL_PORT:-18090}"
+      NEXT_PUBLIC_POCKETBASE_URL: "http://127.0.0.1:${PB_REHEARSAL_PORT:-18090}"
+      POCKETBASE_INTERNAL_URL: http://pocketbase:8090
+      POCKETBASE_ADMIN_EMAIL: ${PB_REHEARSAL_SUPERUSER_EMAIL}
+      POCKETBASE_ADMIN_PASSWORD: ${PB_REHEARSAL_SUPERUSER_PASSWORD}
+      PB_SUPERUSER_EMAIL: ${PB_REHEARSAL_SUPERUSER_EMAIL}
+      PB_SUPERUSER_PASSWORD: ${PB_REHEARSAL_SUPERUSER_PASSWORD}
+      VIEW_RATE_LIMIT_SECRET: ${PB_REHEARSAL_VIEW_SECRET}
+      SHARED_RATE_LIMIT_HOOK_SECRET: ${PB_REHEARSAL_HOOK_SECRET}
+      RATE_LIMIT_KEY_SECRET: ${PB_REHEARSAL_KEY_SECRET}
+      LOCAL_INTEGRATION_EXISTING_OWNER_PASSWORD: ${PB_REHEARSAL_FIXTURE_PASSWORD:-}
+      SHARED_RATE_LIMIT_MODE: enforce
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PB_REHEARSAL_WEB_PORT:-18100}:3000"
+    volumes:
+      - fanzoom_backend_rehearsal_logs:/app/.local-observability
+    restart: unless-stopped
+
 volumes:
   fanzoom_backend_rehearsal_data:
+  fanzoom_backend_rehearsal_logs:

@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$SchemaPath,
   [Parameter(Mandatory = $true)][string]$OutputDirectory,
+  [ValidatePattern('^\d+\.\d+\.\d+$')][string]$PocketBaseVersion = '0.40.0',
+  [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSchemaSha256 = '',
   [switch]$KeepEnvironment
 )
 
@@ -15,6 +17,10 @@ if (-not $composeFile.StartsWith($workspace, [System.StringComparison]::OrdinalI
 }
 if (-not $resolvedSchema.EndsWith('.json', [System.StringComparison]::OrdinalIgnoreCase)) {
   throw 'The rehearsal schema must be a JSON file.'
+}
+$actualSchemaSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedSchema).Hash.ToLowerInvariant()
+if ($ExpectedSchemaSha256 -and $actualSchemaSha256 -ne $ExpectedSchemaSha256.ToLowerInvariant()) {
+  throw "Schema SHA-256 mismatch. Expected $ExpectedSchemaSha256; received $actualSchemaSha256"
 }
 New-Item -ItemType Directory -Path $resolvedOutput -Force | Out-Null
 
@@ -36,6 +42,17 @@ function Wait-PocketBase {
   throw 'The isolated PocketBase did not become healthy.'
 }
 
+function Wait-Next {
+  for ($attempt = 0; $attempt -lt 120; $attempt++) {
+    try {
+      $response = Invoke-WebRequest -Uri "$env:PB_REHEARSAL_WEB_URL/api/health" -UseBasicParsing -TimeoutSec 2
+      if ($response.StatusCode -eq 200) { return }
+    } catch {}
+    Start-Sleep -Seconds 1
+  }
+  throw 'The isolated Next.js application did not become healthy.'
+}
+
 function Invoke-RehearsalNode([string]$Mode) {
   & node (Join-Path $workspace 'scripts/backend-rehearsal/run.mjs') $Mode
   if ($LASTEXITCODE -ne 0) { throw "Backend rehearsal phase failed: $Mode" }
@@ -43,6 +60,10 @@ function Invoke-RehearsalNode([string]$Mode) {
 
 $env:PB_REHEARSAL_URL = 'http://127.0.0.1:18090'
 $env:PB_REHEARSAL_PORT = '18090'
+$env:PB_REHEARSAL_WEB_URL = 'http://127.0.0.1:18100'
+$env:PB_REHEARSAL_WEB_PORT = '18100'
+$env:PB_REHEARSAL_VERSION = $PocketBaseVersion
+$env:PB_REHEARSAL_EXPECTED_SCHEMA_SHA256 = if ($ExpectedSchemaSha256) { $ExpectedSchemaSha256.ToLowerInvariant() } else { $actualSchemaSha256 }
 $env:PB_REHEARSAL_SCHEMA_PATH = $resolvedSchema
 $env:PB_REHEARSAL_OUTPUT_DIR = $resolvedOutput
 $env:PB_REHEARSAL_SUPERUSER_EMAIL = 'rehearsal-superuser@fanzoom.local'
@@ -50,6 +71,8 @@ $env:PB_REHEARSAL_SUPERUSER_PASSWORD = New-RehearsalSecret
 $env:PB_REHEARSAL_VIEW_SECRET = New-RehearsalSecret
 $env:PB_REHEARSAL_HOOK_SECRET = New-RehearsalSecret
 $env:PB_REHEARSAL_HOOK_SECRET_PREVIOUS = New-RehearsalSecret
+$env:PB_REHEARSAL_KEY_SECRET = New-RehearsalSecret
+$env:PB_REHEARSAL_FIXTURE_PASSWORD = "Local-Rehearsal-$([guid]::NewGuid().ToString('N'))!9"
 $compose = @('compose', '-f', $composeFile)
 
 try {
@@ -58,7 +81,19 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Could not reset the isolated rehearsal stack.' }
 
   $env:PB_REHEARSAL_MODE = 'legacy'
-  & docker @compose up -d --build pocketbase
+  & docker @compose build pocketbase web
+  if ($LASTEXITCODE -ne 0) { throw 'Could not build the isolated rehearsal images.' }
+
+  $pocketBaseImage = 'fanzoom-backend-rehearsal-pocketbase:latest'
+  $versionOutput = (& docker run --rm --entrypoint /pb/pocketbase $pocketBaseImage --version | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0) { throw 'Could not read the PocketBase executable version.' }
+  if ($versionOutput -notmatch "(?m)(^|\s)v?$([regex]::Escape($PocketBaseVersion))(\s|$)") {
+    throw "PocketBase executable version mismatch. Expected $PocketBaseVersion; received: $versionOutput"
+  }
+  $env:PB_REHEARSAL_EXECUTABLE_VERSION = $PocketBaseVersion
+  $env:PB_REHEARSAL_EXECUTABLE_VERSION_RAW = $versionOutput
+
+  & docker @compose up -d pocketbase
   if ($LASTEXITCODE -ne 0) { throw 'Could not start the legacy-schema rehearsal container.' }
   Wait-PocketBase
   Invoke-RehearsalNode 'prepare'
@@ -81,6 +116,21 @@ try {
   if ($LASTEXITCODE -eq 0) { throw 'Upgraded PocketBase started without required secrets.' }
   $env:PB_REHEARSAL_STARTUP_SECRET_GUARD = 'true'
   Invoke-RehearsalNode 'verify'
+
+  # Exercise the real Next.js route handlers against the same upgraded database
+  # and the same PocketBase executable used for the migration rehearsal.
+  & docker @compose up -d --no-deps web
+  if ($LASTEXITCODE -ne 0) { throw 'Could not start Next.js for the application-path rehearsal.' }
+  Wait-Next
+  & docker @compose exec -T `
+    -e LOCAL_APP_URL=http://web:3000 `
+    -e NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8090 `
+    web node scripts/test-local-integration.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'Next.js application-path integration failed against the rehearsal backend.' }
+  $env:PB_REHEARSAL_APP_INTEGRATION = 'true'
+  Invoke-RehearsalNode 'verify-preserved'
+  & docker @compose stop web
+  if ($LASTEXITCODE -ne 0) { throw 'Could not stop Next.js before rollback rehearsal.' }
 
   # Rollback proof uses the actual pre-migration backup and an empty migration
   # directory so the restored legacy database is not immediately upgraded again.
@@ -105,10 +155,14 @@ try {
   }
   @(
     'PB_REHEARSAL_URL', 'PB_REHEARSAL_PORT', 'PB_REHEARSAL_SCHEMA_PATH',
+    'PB_REHEARSAL_WEB_URL', 'PB_REHEARSAL_WEB_PORT', 'PB_REHEARSAL_VERSION',
+    'PB_REHEARSAL_EXPECTED_SCHEMA_SHA256',
+    'PB_REHEARSAL_EXECUTABLE_VERSION', 'PB_REHEARSAL_EXECUTABLE_VERSION_RAW',
     'PB_REHEARSAL_OUTPUT_DIR', 'PB_REHEARSAL_SUPERUSER_EMAIL',
     'PB_REHEARSAL_SUPERUSER_PASSWORD', 'PB_REHEARSAL_VIEW_SECRET',
-    'PB_REHEARSAL_HOOK_SECRET', 'PB_REHEARSAL_HOOK_SECRET_PREVIOUS',
+    'PB_REHEARSAL_HOOK_SECRET', 'PB_REHEARSAL_HOOK_SECRET_PREVIOUS', 'PB_REHEARSAL_KEY_SECRET',
+    'PB_REHEARSAL_FIXTURE_PASSWORD',
     'PB_REHEARSAL_MODE', 'PB_REHEARSAL_MIGRATION_RERUN_NOOP',
-    'PB_REHEARSAL_STARTUP_SECRET_GUARD'
+    'PB_REHEARSAL_STARTUP_SECRET_GUARD', 'PB_REHEARSAL_APP_INTEGRATION'
   ) | ForEach-Object { Remove-Item "Env:$_" -ErrorAction SilentlyContinue }
 }

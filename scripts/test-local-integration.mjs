@@ -29,8 +29,8 @@ assert(adminEmail && adminPassword, 'Local PocketBase admin credentials are requ
 const runId = crypto.randomUUID().replaceAll('-', '').slice(0, 12);
 const testEmail = `api-${runId}@fanzoom.local`;
 const testPassword = `ApiLocal-${runId}!Z9`;
-const ownerEmail = `owner-${runId}@fanzoom.local`;
-const ownerPassword = `OwnerLocal-${runId}!Z9`;
+let ownerEmail = `owner-${runId}@fanzoom.local`;
+let ownerPassword = `OwnerLocal-${runId}!Z9`;
 const feedId = `itest_${runId}`;
 const algorithmVersion = 'baseline-category-round-robin-v1';
 const results = [];
@@ -109,21 +109,31 @@ await adminPb.collection('users').create({
 const testUser = await adminPb.collection('users').getFirstListItem(
   adminPb.filter('email = {:email}', { email: testEmail }),
 );
-const ownerUser = await adminPb.collection('users').create({
-  email: ownerEmail,
-  password: ownerPassword,
-  passwordConfirm: ownerPassword,
-  verified: true,
-  displayName: 'Local access owner',
-});
-const ownerBootstrap = await execFileAsync(
-  process.execPath,
-  ['scripts/provision-local-app-admin.mjs', '--user-id', ownerUser.id, '--role', 'owner'],
-  { env: process.env },
-);
-assert(ownerBootstrap.stdout.includes('First local app owner provisioned securely'), 'First owner bootstrap failed');
-assert(!ownerBootstrap.stdout.includes(ownerUser.id), 'Owner bootstrap output exposed the user ID');
-assert(!ownerBootstrap.stdout.includes(ownerEmail), 'Owner bootstrap output exposed email');
+let ownerUser;
+if (process.env.LOCAL_INTEGRATION_EXISTING_OWNER_PASSWORD) {
+  const existingOwner = await adminPb.collection('app_admins').getFirstListItem(
+    'role = "owner" && enabled = true',
+  );
+  ownerUser = await adminPb.collection('users').getOne(existingOwner.user);
+  ownerEmail = ownerUser.email;
+  ownerPassword = process.env.LOCAL_INTEGRATION_EXISTING_OWNER_PASSWORD;
+} else {
+  ownerUser = await adminPb.collection('users').create({
+    email: ownerEmail,
+    password: ownerPassword,
+    passwordConfirm: ownerPassword,
+    verified: true,
+    displayName: 'Local access owner',
+  });
+  const ownerBootstrap = await execFileAsync(
+    process.execPath,
+    ['scripts/provision-local-app-admin.mjs', '--user-id', ownerUser.id, '--role', 'owner'],
+    { env: process.env },
+  );
+  assert(ownerBootstrap.stdout.includes('First local app owner provisioned securely'), 'First owner bootstrap failed');
+  assert(!ownerBootstrap.stdout.includes(ownerUser.id), 'Owner bootstrap output exposed the user ID');
+  assert(!ownerBootstrap.stdout.includes(ownerEmail), 'Owner bootstrap output exposed email');
+}
 const secondBootstrap = await execFileAsync(
   process.execPath,
   ['scripts/provision-local-app-admin.mjs', '--user-id', testUser.id, '--role', 'viewer'],

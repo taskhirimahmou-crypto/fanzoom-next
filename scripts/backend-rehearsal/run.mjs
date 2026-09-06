@@ -12,13 +12,17 @@ const email = process.env.PB_REHEARSAL_SUPERUSER_EMAIL;
 const password = process.env.PB_REHEARSAL_SUPERUSER_PASSWORD;
 const hookSecret = process.env.PB_REHEARSAL_HOOK_SECRET;
 const previousHookSecret = process.env.PB_REHEARSAL_HOOK_SECRET_PREVIOUS;
+const executableVersion = process.env.PB_REHEARSAL_EXECUTABLE_VERSION;
+const executableVersionOutput = process.env.PB_REHEARSAL_EXECUTABLE_VERSION_RAW;
+const expectedSchemaHash = process.env.PB_REHEARSAL_EXPECTED_SCHEMA_SHA256;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-assert(['prepare', 'verify', 'restore', 'verify-restored'].includes(command), 'Unknown rehearsal command');
+assert(['prepare', 'verify', 'verify-preserved', 'restore', 'verify-restored'].includes(command), 'Unknown rehearsal command');
 assert(schemaPath && outputDir && email && password, 'Rehearsal environment is incomplete');
+assert(/^\d+\.\d+\.\d+$/.test(executableVersion ?? ''), 'PocketBase executable version was not verified');
 assert(new URL(baseUrl).hostname === '127.0.0.1' || new URL(baseUrl).hostname === 'localhost', 'Refusing a non-local PocketBase URL');
 
 await mkdir(outputDir, { recursive: true });
@@ -44,6 +48,18 @@ async function recordCounts(pb, names) {
   return Object.fromEntries(await Promise.all(names.map(async (name) => [name, await count(pb, name)])));
 }
 
+async function assertPreservedRecords(pb, state) {
+  for (const [collectionName, ids] of Object.entries(state.preservedRecordIds)) {
+    for (const id of ids) {
+      await pb.collection(collectionName).getOne(id, { fields: 'id', requestKey: null });
+    }
+  }
+  const news = await pb.collection('news').getOne(state.newsRecordId, { requestKey: null });
+  for (const [field, expected] of Object.entries(state.newsFixture)) {
+    assert(news[field] === expected, `Preserved news field changed: ${field}`);
+  }
+}
+
 async function expectStatus(task, status, label) {
   const error = await task.then(() => null, (value) => value);
   assert(error?.status === status, `${label}: expected ${status}, received ${error?.status ?? 'success'}`);
@@ -56,6 +72,8 @@ function writeJson(file, value) {
 async function prepare() {
   const snapshot = JSON.parse(await readFile(schemaPath, 'utf8'));
   assert(Array.isArray(snapshot), 'PocketBase schema snapshot must be an array');
+  const snapshotHash = createHash('sha256').update(await readFile(schemaPath)).digest('hex');
+  assert(snapshotHash === expectedSchemaHash, 'PocketBase schema snapshot hash changed before import');
   const pb = await adminClient();
   await pb.collections.import(snapshot, false);
   const imported = await collections(pb);
@@ -63,7 +81,8 @@ async function prepare() {
   assert(preflight.matches, `Imported schema differs from snapshot: ${JSON.stringify(preflight.mismatches)}`);
 
   const suffix = randomUUID().replaceAll('-', '').slice(0, 10);
-  const testPassword = `Local-Rehearsal-${suffix}!9`;
+  const testPassword = process.env.PB_REHEARSAL_FIXTURE_PASSWORD;
+  assert(testPassword && testPassword.length >= 16, 'Local fixture password is missing');
   const user1 = await pb.collection('users').create({
     email: `rehearsal-a-${suffix}@fanzoom.local`, password: testPassword,
     passwordConfirm: testPassword, verified: true, displayName: 'Local rehearsal A',
@@ -73,7 +92,7 @@ async function prepare() {
     passwordConfirm: testPassword, verified: true, displayName: 'Local rehearsal B',
   });
   const articles = [];
-  for (let index = 1; index <= 3; index += 1) {
+  for (let index = 1; index <= 5; index += 1) {
     articles.push(await pb.collection('articles').create({
       title: `Local rehearsal article ${index}`,
       slug: `local-rehearsal-${suffix}-${index}`,
@@ -83,20 +102,36 @@ async function prepare() {
       readTime: 1, author: 'Local QA', featured: false,
     }));
   }
-  await pb.collection('bookmarks').create({ user: user1.id, article: articles[0].id });
+  const bookmark = await pb.collection('bookmarks').create({ user: user1.id, article: articles[0].id });
   const preservedComment = await pb.collection('comments').create({
     user: user1.id, article: articles[0].id, content: 'Local fixture', status: 'approved',
   });
 
-  await pb.collection('reading_history').create({ user: user1.id, article: articles[0].id, progress: 20 });
-  await pb.collection('reading_history').create({ user: user1.id, article: articles[0].id, progress: 40 });
-  await pb.collection('reading_history').create({ user: user2.id, article: articles[2].id });
-  await pb.collection('history').create({ user: user1.id, article: articles[0].id, last_read: '2030-02-01 00:00:00.000Z' });
-  await pb.collection('history').create({ user: user1.id, article: articles[1].id });
-  await pb.collection('history').create({ user: user2.id, article: articles[2].id, last_read: '2030-01-01 00:00:00.000Z' });
-  await pb.collection('history').create({ user: user1.id, article: articles[0].id, last_read: '2030-03-01 00:00:00.000Z' });
+  const readingHistory = await Promise.all([
+    pb.collection('reading_history').create({ user: user1.id, article: articles[0].id, progress: 20 }),
+    pb.collection('reading_history').create({ user: user1.id, article: articles[0].id, progress: 40 }),
+    pb.collection('reading_history').create({ user: user2.id, article: articles[2].id }),
+  ]);
+  const legacyHistory = await Promise.all([
+    pb.collection('history').create({ user: user1.id, article: articles[0].id, last_read: '2030-02-01 00:00:00.000Z' }),
+    pb.collection('history').create({ user: user1.id, article: articles[1].id }),
+    pb.collection('history').create({ user: user2.id, article: articles[2].id, last_read: '2030-01-01 00:00:00.000Z' }),
+    pb.collection('history').create({ user: user1.id, article: articles[0].id, last_read: '2030-03-01 00:00:00.000Z' }),
+  ]);
+  const siteLogo = await pb.collection('Site_Logo').create({});
+  const newsFixture = {
+    news_link: `https://local.invalid/rehearsal/${suffix}`,
+    status: 'PENDING',
+    title: `Local rehearsal news ${suffix}`,
+    slug: `local-rehearsal-news-${suffix}`,
+    content: '<p>Local-only news fixture</p>',
+    source_name: 'Local QA',
+    retry_count: 2,
+    archived: false,
+  };
+  const news = await pb.collection('news').create(newsFixture);
 
-  const preservedCollections = ['users', 'articles', 'bookmarks', 'comments', 'history', 'reading_history'];
+  const preservedCollections = snapshot.map((collection) => collection.name);
   const preCounts = await recordCounts(pb, preservedCollections);
   const backupName = `fanzoom_rehearsal_${suffix}.zip`;
   await pb.backups.create(backupName);
@@ -110,20 +145,32 @@ async function prepare() {
 
   await writeJson(statePath, {
     schemaPath,
-    snapshotHash: createHash('sha256').update(await readFile(schemaPath)).digest('hex'),
+    snapshotHash,
     snapshotCollections: snapshot,
     preCounts,
     userIds: [user1.id, user2.id],
     testPassword,
     articleIds: articles.map((article) => article.id),
     preservedCommentId: preservedComment.id,
+    newsRecordId: news.id,
+    newsFixture,
+    preservedRecordIds: {
+      users: [user1.id, user2.id],
+      articles: articles.map((article) => article.id),
+      bookmarks: [bookmark.id],
+      comments: [preservedComment.id],
+      history: legacyHistory.map((record) => record.id),
+      reading_history: readingHistory.map((record) => record.id),
+      Site_Logo: [siteLogo.id],
+      news: [news.id],
+    },
     backupName,
     backupFile,
     backupSha256: createHash('sha256').update(backupBytes).digest('hex'),
     backupBytes: backupBytes.byteLength,
   });
   await writeJson(reportPath, {
-    phase: 'prepared', schemaSource: path.basename(schemaPath), snapshotHash: createHash('sha256').update(await readFile(schemaPath)).digest('hex'),
+    phase: 'prepared', schemaSource: path.basename(schemaPath), snapshotHash, expectedSchemaHash,
     snapshotCollectionCount: snapshot.length, snapshotImportMatches: true, preCounts,
     backup: { name: backupName, bytes: backupBytes.byteLength, sha256: createHash('sha256').update(backupBytes).digest('hex') },
   });
@@ -187,11 +234,12 @@ async function verify() {
   assert(schemaDiff.removedCollections.length === 0, `Migration removed collections: ${schemaDiff.removedCollections.join(', ')}`);
   assert(schemaDiff.changedCollections.every((item) => item.removedFields.length === 0), 'Migration removed fields');
 
-  const postCountsBeforeHookTests = await recordCounts(pb, ['users', 'articles', 'bookmarks', 'comments', 'history', 'reading_history']);
-  for (const name of ['users', 'articles', 'bookmarks', 'comments', 'history']) {
+  const postCountsBeforeHookTests = await recordCounts(pb, Object.keys(state.preCounts));
+  for (const name of Object.keys(state.preCounts).filter((name) => name !== 'reading_history')) {
     assert(postCountsBeforeHookTests[name] === state.preCounts[name], `${name} count changed during migration`);
   }
   assert(postCountsBeforeHookTests.reading_history === state.preCounts.reading_history + 1, 'Legacy history copy count is unexpected');
+  await assertPreservedRecords(pb, state);
   const duplicatePair = await pb.collection('reading_history').getFullList({
     filter: pb.filter('user = {:user} && article = {:article}', { user: state.userIds[0], article: state.articleIds[0] }),
   });
@@ -257,13 +305,24 @@ async function verify() {
   }
 
   const cleanupKey = createHash('sha256').update(`cleanup-${randomUUID()}`).digest('hex');
+  const metricsInitial = await limiterMetrics(hookSecret);
+  assert(metricsInitial.response.status === 200, 'Initial cleanup metrics were unavailable');
   await limiterCheck(hookSecret, [{ policy: '_internal.cleanup-probe', keyHash: cleanupKey }]);
   await new Promise((resolve) => setTimeout(resolve, 2300));
   const metricsBefore = await limiterMetrics(hookSecret);
-  assert(metricsBefore.response.status === 200 && metricsBefore.result.cleanupBacklog >= 1, 'Cleanup backlog was not measurable');
-  await pb.crons.run('fanzoom-rate-limit-cleanup');
+  assert(metricsBefore.response.status === 200, 'Cleanup backlog metrics were unavailable');
+  let cleanupMode = 'scheduled';
+  if (metricsBefore.result.cleanupBacklog >= 1) {
+    cleanupMode = 'manual';
+    await pb.crons.run('fanzoom-rate-limit-cleanup');
+  } else {
+    assert(
+      metricsBefore.result.cleanupDeleted > metricsInitial.result.cleanupDeleted,
+      'Expired cleanup probe was neither pending nor deleted by the scheduled job',
+    );
+  }
   const metricsAfter = await limiterMetrics(hookSecret);
-  assert(metricsAfter.result.cleanupBacklog < metricsBefore.result.cleanupBacklog, 'Cleanup did not remove expired rows');
+  assert(metricsAfter.result.cleanupBacklog === 0, 'Cleanup left the expired probe behind');
   assert(metricsAfter.result.activeBuckets >= 1, 'Cleanup removed active buckets');
 
   const bootstrap = await pb.send('/api/fanzoom/admin-access/bootstrap-owner', {
@@ -279,10 +338,13 @@ async function verify() {
     method: 'POST', body: { actorUserId: state.userIds[1], targetUserId: state.userIds[1], role: 'viewer', enabled: false, requestId: randomUUID() },
   }), 409, 'owner self lockout');
 
-  const finalCounts = await recordCounts(pb, ['users', 'articles', 'bookmarks', 'comments', 'history', 'reading_history']);
+  const finalCounts = await recordCounts(pb, Object.keys(state.preCounts));
   const report = {
     phase: 'verified', schemaSource: path.basename(state.schemaPath), snapshotHash: state.snapshotHash,
-    pocketBaseVersion: '0.40.0', snapshotImportMatches: true, migrationRerunNoOp: process.env.PB_REHEARSAL_MIGRATION_RERUN_NOOP === 'true',
+    pocketBaseVersion: executableVersion,
+    pocketBaseExecutableVersion: executableVersion,
+    pocketBaseVersionOutput: executableVersionOutput,
+    snapshotImportMatches: true, migrationRerunNoOp: process.env.PB_REHEARSAL_MIGRATION_RERUN_NOOP === 'true',
     preservation: { before: state.preCounts, afterMigration: postCountsBeforeHookTests, final: finalCounts, noSourceRowsDeleted: true },
     historyMigration: {
       canonicalAdded: 1,
@@ -294,19 +356,36 @@ async function verify() {
     consent: { existingUsersDefaultDisabled: true },
     privateCollections: ['recommendation_events', 'app_admins', 'app_admin_audit'],
     commentModeration: { directCreateBlocked: true, existingApprovedPreserved: true },
-    sharedLimiter: { multiBucketAtomic: true, retryDeduplicated: true, rotationSecretAccepted: true, invalidAndExpiredRejected: true, concurrencyRounds, cleanupBacklogBefore: metricsBefore.result.cleanupBacklog, cleanupBacklogAfter: metricsAfter.result.cleanupBacklog, activeBucketsAfterCleanup: metricsAfter.result.activeBuckets },
+    sharedLimiter: { multiBucketAtomic: true, retryDeduplicated: true, rotationSecretAccepted: true, invalidAndExpiredRejected: true, concurrencyRounds, cleanupMode, cleanupBacklogBefore: metricsBefore.result.cleanupBacklog, cleanupBacklogAfter: metricsAfter.result.cleanupBacklog, activeBucketsAfterCleanup: metricsAfter.result.activeBuckets },
     hooks: { atomicViews: viewRounds, adminMutationAuditAtomic: true, coexistence: true },
     schemaDiff,
     compatibility: {
       featureBranchRequiredSchemaPresent: true,
       originMainRequiredSchemaPresent: true,
       originMainNote: 'additive-schema-compatible; direct comment creation intentionally replaced by trusted server API',
+      applicationPathsExecuted: false,
     },
     startupSafety: { missingRequiredSecretsRejected: process.env.PB_REHEARSAL_STARTUP_SECRET_GUARD === 'true' },
     backup: { bytes: state.backupBytes, sha256: state.backupSha256, restorePending: true },
   };
   await writeJson(reportPath, report);
   console.log(JSON.stringify({ ok: true, phase: 'verify', concurrencyRounds, viewRounds, schemaDiff }));
+}
+
+async function verifyPreserved() {
+  const state = JSON.parse(await readFile(statePath, 'utf8'));
+  const report = JSON.parse(await readFile(reportPath, 'utf8'));
+  const pb = await adminClient();
+  await assertPreservedRecords(pb, state);
+  const live = await collections(pb);
+  const schemaDiff = diffSchemas(state.snapshotCollections, live);
+  assert(schemaDiff.removedCollections.length === 0, 'Application-path tests removed a snapshot collection');
+  assert(schemaDiff.changedCollections.every((item) => item.removedFields.length === 0), 'Application-path tests removed a snapshot field');
+  report.compatibility.applicationPathsExecuted = process.env.PB_REHEARSAL_APP_INTEGRATION === 'true';
+  report.compatibility.applicationIntegrationSuite = 'scripts/test-local-integration.mjs';
+  report.preservation.representativeRecordsSurvivedApplicationPaths = true;
+  await writeJson(reportPath, report);
+  console.log(JSON.stringify({ ok: true, phase: 'verify-preserved' }));
 }
 
 async function restore() {
@@ -339,5 +418,6 @@ async function verifyRestored() {
 
 if (command === 'prepare') await prepare();
 if (command === 'verify') await verify();
+if (command === 'verify-preserved') await verifyPreserved();
 if (command === 'restore') await restore();
 if (command === 'verify-restored') await verifyRestored();
