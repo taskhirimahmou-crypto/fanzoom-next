@@ -1,5 +1,9 @@
 # Runbook استقرار کنترل‌شده‌ی Backend در Liara
 
+> برای وضعیت واقعی image، mountها، bundle و checklist انتشار دستی، سند
+> [manual-pocketbase-release-package.md](./manual-pocketbase-release-package.md) مرجع اجرایی جدید است.
+> تا اثبات command واقعی image، نام ۱۹ migration و restore backup، وضعیت production برابر NO-GO است.
+
 این سند فقط راهنمای اجرای دستی است. PocketBase روی Liara مستقل از GitHub و Vercel منتشر می‌شود؛ Push یا Merge هیچ migration، hook یا executableای را به Liara منتقل نمی‌کند. import کردن schema نیز جای اجرای migration، انتقال داده و نصب hookها را نمی‌گیرد.
 
 ## نتیجه‌ی rehearsal مرجع
@@ -80,12 +84,12 @@ docker run --rm --entrypoint /pb/pocketbase fanzoom-pocketbase:0.30.0-recommende
 
 محل انتقال: **روش استقرار سرویس/مدیریت فایل Liara که باید از اطلاعات نصب فعلی تأیید شود**.
 
-- تمام فایل‌های `pb_migrations/` با نام و ترتیب فعلی
+- فقط ۱۰ فایل migration نسخه‌دار `*.js` فهرست‌شده در سند release؛ `README.md` منتشر نشود
 - `pb_hooks/atomic_views.pb.js`
 - `pb_hooks/shared_rate_limit.pb.js`
 - `pb_hooks/rate_limit_policies.json`
 - `pb_hooks/admin_access.pb.js`
-- در روش Docker: `docker/pocketbase.Dockerfile` و `docker/pocketbase-entrypoint.sh`
+- Dockerfile و entrypoint repository متعلق به rehearsal محلی‌اند و جای image/command واقعی Liara را نمی‌گیرند
 
 هیچ schema export، `pb_data`، backup، `.env` یا credential نباید وارد Git/image عمومی شود.
 
@@ -150,7 +154,7 @@ PocketBase می‌گوید backup داخلی snapshot کامل `pb_data` است 
 3. **ماشین build ایزوله:** package را با binary دقیق 0.30.0، migrationها و hookها بسازید؛ `--version` را ثبت کنید.
 4. **Liara Environment Variables:** secretهای لازم را موجود/قابل rotation کنید؛ مقدارشان را در ticket یا log ننویسید.
 5. **روش استقرار دستی Liara:** image یا bundle را مطابق روش فعلیِ تأییدشده جایگزین کنید. Push GitHub این کار را انجام نمی‌دهد.
-6. **سرویس Liara:** با writeهای متوقف، migrationها را یک بار اجرا کنید. در روش repository، entrypoint قبل از serve فرمان `migrate up` را اجرا می‌کند.
+6. **سرویس Liara:** فقط پس از اثبات Entrypoint/Cmd image دقیق، با writeهای متوقف migrationها را یک بار اجرا کنید. entrypoint repository فقط رفتار محیط Docker محلی را ثابت می‌کند.
 7. **سرویس Liara:** restart/deploy لازم است تا executable، schema cache و hookهای جدید هم‌زمان load شوند.
 8. **پنل PocketBase و health:** log migration، schema، ruleها، countها و smoke testهای پایین را بررسی کنید.
 9. **Vercel:** فقط پس از تأیید کامل backend، frontend را با limiter در حالت `shadow` منتشر کنید.
