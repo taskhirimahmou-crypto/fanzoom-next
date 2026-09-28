@@ -2,15 +2,11 @@
 
 این راهنما برای انتشار دستی PocketBase روی Liara است. اجرای هیچ‌کدام از دستورهای «محلی» به Liara، Vercel یا production وصل نمی‌شود. Push یا Merge گیت، backend را منتشر نمی‌کند.
 
-## نتیجه‌ی فعلی: NO-GO
+## وضعیت فعلی: آزمایش محلی PASS؛ انتشار production هنوز NO-GO
 
-بسته‌ی محلی قابل ساخت و rehearsal نسخه‌ی 0.30.0 موفق است، اما شروع انتشار production هنوز مجاز نیست. سه gate باز مانده است:
+سه مانع preflight قبلی در ۲۰۲۶-۰۹-۰۷ رفع شدند: بکاپ واقعی دانلود و hash/restore محلی شد، ۱۹ migration دیسک با دیتابیس تطبیق کردند، و فرمان PID 1 روی Liara مشاهده شد. در ۲۰۲۶-۰۹-۲۸ آزمون کامل روی کپی همان بکاپ و ۱۹ فایل قدیمی نیز موفق شد؛ [گزارش غیرحساس](production-fidelity-rehearsal-20260928.md) را ببینید.
 
-1. backup نمایش‌داده‌شده‌ی `/pb_data` مربوط به `2026-09-06 06:19:00` با حجم نمایشی `1.93 GB` هنوز دانلود، hash و restore نشده است.
-2. نام دقیق ۱۹ migration موجود روی disk و نام‌های ثبت‌شده در جدول داخلی migration هنوز با ۱۰ migration جدید مقایسه نشده‌اند.
-3. فرمان واقعی startup/entrypoint در image دقیق `registry.c2.liara.ir/one-click-apps/pocketbase:0.30.0` اثبات نشده است. registry از محیط محلی پاسخ 403 داد و template عمومی فعلی Liara فقط image، port و mountها را نشان می‌دهد؛ command را نشان نمی‌دهد.
-
-تا بسته‌شدن هر سه gate، restart production ممنوع است.
+این بکاپ اکنون سه هفته قدیمی است. پیش از تغییر production، یک بکاپ تازه و تطبیق دوبارهٔ migrationها لازم است. همچنین audit فعلی dependencyهای runtime یک هشدار critical برای Next.js 16.2.11 نشان می‌دهد؛ رفع یا ارزیابی مستند آن پیش از merge به `main` لازم است. زمان وقفهٔ واقعی و رفتار restore خود Liara در آزمایش محلی اندازه‌گیری نشده‌اند.
 
 ## وضعیت واقعی ثبت‌شده
 
@@ -109,25 +105,15 @@ npm.cmd run release:pocketbase:inspect -- --db "D:\safe-rehearsal\pb_data\data.d
 
 این script هیچ index یا migrationی ایجاد نمی‌کند. برای اطمینان بیشتر، backup استخراج‌شده را روی یک copy محلی اجرا کنید و SHA-256 فایل `data.db` را قبل و بعد مقایسه کنید.
 
-## اثبات امن رفتار restart image
+## فرمان واقعی restart
 
-مستند رسمی PocketBase می‌گوید migrationهای unapplied در migrations directory هنگام `serve` به‌طور خودکار اجرا می‌شوند و `pocketbase migrate up` نیز آن‌ها را صریح اجرا می‌کند. اما برای production باید ثابت شود image لیارا واقعاً:
+فرمان PID 1 در Liara به‌شکل زیر مشاهده شد:
 
-- binary نسخه‌ی 0.30.0 را اجرا می‌کند؛
-- `--dir=/pb_data` دارد؛
-- `--migrationsDir=/pb_migrations` دارد؛
-- `--hooksDir=/pb_hooks` دارد؛
-- قبل از serve یا از طریق serve migrationها را اجرا می‌کند؛
-- در خطای migration startup را متوقف می‌کند.
+```text
+/usr/local/bin/pocketbase serve --http=0.0.0.0:8090 --dir=/pb_data --publicDir=/pb_public
+```
 
-template عمومی فعلی Liara mountهای مشابه را نشان می‌دهد، اما image/tag و command آن با اطلاعات production یکسان نیست؛ پس مدرک کافی نیست.
-
-روش اثبات بدون دست‌زدن به production، یکی از این دو است:
-
-1. **ترجیحی — Liara/پشتیبانی:** digest immutable image و مقدار Entrypoint/Cmd همان tag را بدون secret دریافت کنید.
-2. **محیط موقت Liara یا registry read-only:** همان image را روی یک برنامه‌ی آزمایشی با چهار disk خالی اجرا کنید؛ یک migration sentinel کاملاً additive در `/pb_migrations` بگذارید؛ restart کنید؛ از log و schema ثابت کنید دقیقاً یک بار اجرا شده و اجرای دوم no-op است. سپس محیط موقت حذف می‌شود. این آزمایش نباید از backup یا credential production استفاده کند.
-
-تا یکی از این دو روش ثبت نشده، restart-migration برابر «تأییدنشده» و نتیجه NO-GO است.
+نسخهٔ executable برابر 0.30.0 و mountهای `/pb_data`، `/pb_hooks` و `/pb_migrations` تأیید شدند. فلگ‌های `--hooksDir` و `--migrationsDir` صریح نیستند؛ PocketBase 0.30.0 مسیر پیش‌فرض این دو پوشه را کنار `/pb_data` تعیین می‌کند. اجرای محلی با command معادل، ۱۰ migration جدید را یک‌بار اعمال کرد و start دوم migration تازه‌ای اجرا نکرد. این تست از binary رسمی نسخهٔ 0.30.0 استفاده کرد؛ digest immutable image اختصاصی Liara هنوز ثبت نشده است.
 
 ## چک‌لیست انتشار دستی
 
